@@ -23,7 +23,7 @@ class Runner(zouqi.Runner):
     def __init__(self):
         self.add_argument("who")
 
-        # Call init after argument adding to make sure it is updated.
+        # Call init after argument adding to make sure args are updated.
         super().__init__()
 
     # (This is not a command.)
