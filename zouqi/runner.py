@@ -111,7 +111,7 @@ class Runner:
         self.command = self.args.command
 
     def update_args(self, args):
-        self.args = argparse.Namespace(**vars(self.args), **vars(args))
+        self.args = argparse.Namespace(**{**vars(self.args), **vars(args)})
 
     def run(self):
         getattr(self, self.command)(call_as_command=True)
