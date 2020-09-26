@@ -1,6 +1,6 @@
-# zouqi: A python library for easy CLI
+# Zouqi: A Python CLI Starter Purely Built on argparse.
 
-zouqi (『走起』 in Chinese) is a CLI starter similar to [python-fire](https://github.com/google/python-fire). It is purely built on argparse. 
+Zouqi (『走起』 in Chinese) is a CLI starter similar to [python-fire](https://github.com/google/python-fire). It is purely built on argparse. 
 
 ## Why not [python-fire](https://github.com/google/python-fire)?
 
