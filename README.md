@@ -7,6 +7,10 @@ Zouqi (『走起』 in Chinese) is a CLI starter similar to [python-fire](https:
   - Fire cannot be used to share options between commands easily.
   - Fire treat all member functions as its command, which is not desirable in many situations.
 
+## Disadvantages?
+  
+  - This starter cannot automatically parse arguments from the function signature, you need to do it by using `add_argument`.
+
 ## Example
 
 ### Code
