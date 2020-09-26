@@ -10,11 +10,20 @@ def command(f):
             del kwargs["call_as_command"]
             parameters = inspect.signature(f).parameters.values()
             parameters = [p for p in parameters if p.name != "self"]
+            empty = inspect.Parameter.empty
             for p in parameters:
-                if p.default is inspect.Parameter.empty:
-                    self.add_argument(f"{p.name}")
+
+                # use annotation as type, a little bit abuse
+                if p.annotation is empty:
+                    parser = None
                 else:
-                    self.add_argument(f"--{p.name}", default=p.default)
+                    parser = p.annotation
+
+                if p.default is empty:
+                    self.add_argument(f"{p.name}", type=parser)
+                else:
+                    self.add_argument(f"--{p.name}", type=parser, default=p.default)
+
             self.update_args()
             for p in parameters:
                 kwargs[p.name] = getattr(self.args, p.name)

@@ -15,6 +15,10 @@ Zouqi (『走起』 in Chinese) is a CLI starter similar to [python-fire](https:
 import zouqi
 
 
+def prettify(something):
+    return f"pretty {something}"
+
+
 class Runner(zouqi.Runner):
     def __init__(self):
         self.add_argument("who", type=str)
@@ -26,19 +30,20 @@ class Runner(zouqi.Runner):
     def show(self, action, something):
         print(self.args.who, action, something)
 
-    # Decorate the command with the zouqi.command decorator
+    # Decorate the command with the zouqi.command decorator.
     @zouqi.command
     def drive(self, something):
-        # something without default value becomes an argument: <something>
-        self.show("drives", something)
+        # Equivalent to: parser.add_argument('something').
+        self.show("drives a", something)
 
     @zouqi.command
     def wash(self, something):
-        self.show("washes", something)
+        self.show("washes a", something)
 
     @zouqi.command
-    def drive_and_wash(self, something="car"):
-        # something with default value becomes an option: --something
+    def drive_and_wash(self, something: prettify = "car"):
+        # Equivalent to: parser.add_argument('--something', type=prettify, default='car').
+        # Type hint is used as argument parser (a little bit abuse of type hint here).
         self.drive(something)
         self.wash(something)
 
@@ -57,11 +62,11 @@ example.py: error: the following arguments are required: command, who
 
 ```
 $ python3 example.py drive John car
-John drives car
+John drives a car
 ```
 
 ```
 $ python3 example.py drive_and_wash John --something truck
-John drives truck
-John washes truck
+John drives a pretty truck
+John washes a pretty truck
 ```
