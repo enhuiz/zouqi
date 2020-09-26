@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
 ```
 $ python3 example.py 
-usage: example.py [-h] {drive,wash} who
+usage: example.py [-h] {drive,drive_and_wash,wash} who
 example.py: error: the following arguments are required: command, who
 ```
 
