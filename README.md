@@ -7,6 +7,12 @@ Zouqi (『走起』 in Chinese) is a CLI starter similar to [python-fire](https:
   - Fire cannot be used to share options between commands easily.
   - Fire treat all member functions as its command, which is not desirable in many situations.
 
+## Installation
+
+```
+pip install zouqi
+```
+
 ## Example
 
 ### Code
