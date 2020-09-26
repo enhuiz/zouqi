@@ -1,10 +1,28 @@
 import inspect
 import argparse
+import functools
 
 
 def command(f):
-    f.registered_as_command = True
-    return f
+    @functools.wraps(f)
+    def wrapped(self, *args, **kwargs):
+        if kwargs.get("call_as_command", False):
+            del kwargs["call_as_command"]
+            parameters = inspect.signature(f).parameters.values()
+            parameters = [p for p in parameters if p.name != "self"]
+            for p in parameters:
+                if p.default is inspect.Parameter.empty:
+                    self.add_argument(f"{p.name}")
+                else:
+                    self.add_argument(f"--{p.name}", default=p.default)
+            self.update_args()
+            for p in parameters:
+                kwargs[p.name] = getattr(self.args, p.name)
+        return f(self, *args, **kwargs)
+
+    wrapped.is_command = True
+
+    return wrapped
 
 
 def possible_commands(obj):
@@ -15,14 +33,15 @@ def possible_commands(obj):
         except:
             # could be a property
             continue
-        if getattr(f, "registered_as_command", False):
+        if getattr(f, "is_command", False):
             commands.append(name)
     return commands
 
 
 class Runner:
-    def __init__(self):
-        self.update_args(strict=False)
+    def __init__(self, print_final_args=False):
+        self.print_final_args = print_final_args
+        self.update_args(final=False)
 
     @property
     def parser(self):
@@ -42,15 +61,18 @@ class Runner:
             if "conflicting option string" not in str(e):
                 raise e
 
-    def update_args(self, strict=True):
-        if strict:
+    def update_args(self, final=True):
+        if final:
             self.args = self.parser.parse_args()
+            # print when parsing it finally
+            if self.print_final_args:
+                print(self.args)
         else:
             self.args = self.parser.parse_known_args()[0]
         self.command = self.args.command
 
     def run(self):
-        getattr(self, self.command)()
+        getattr(self, self.command)(call_as_command=True)
 
     def autofeed(self, callable, override={}, mapping={}):
         """Priority: 1. override, 2. parsed args 3. parameters' default"""
