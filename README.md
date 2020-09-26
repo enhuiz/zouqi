@@ -1,13 +1,15 @@
-# Zouqi: A python library for easy CLI
+# zouqi: A python library for easy CLI
 
-Zouqi (『走起』 in Chinese) means "let's go". This is a CLI starter similar to [python-fire](https://github.com/google/python-fire) but build purely on argparse. 
+zouqi (『走起』 in Chinese) is a CLI starter similar to [python-fire](https://github.com/google/python-fire). It is purely built on argparse. 
 
-**Why not [python-fire](https://github.com/google/python-fire)?**
+## Why not [python-fire](https://github.com/google/python-fire)?
 
   - Fire cannot be used to share options between commands easily.
   - Fire treat all member functions as its command, which is not desirable in many situations.
 
 ## Example
+
+### Code
 
 ```python
 import zouqi
@@ -41,6 +43,8 @@ class Runner(zouqi.Runner):
 if __name__ == "__main__":
     Runner().run()
 ```
+
+### Runs
 
 ```
 $ python3 example.py 
