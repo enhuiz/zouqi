@@ -21,10 +21,9 @@ def prettify(something):
 
 class Runner(zouqi.Runner):
     def __init__(self):
-        self.add_argument("who", type=str)
-
-        # Call init after argument adding to make sure it is updated.
         super().__init__()
+        self.add_argument("who", type=str)
+        self.parse_args()
 
     # (This is not a command.)
     def show(self, action, something):
@@ -34,6 +33,7 @@ class Runner(zouqi.Runner):
     @zouqi.command
     def drive(self, something):
         # Equivalent to: parser.add_argument('something').
+        # the parsed args will be stored in self.drive.args instead of args
         self.show("drives a", something)
 
     @zouqi.command
