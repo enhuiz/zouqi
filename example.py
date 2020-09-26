@@ -19,7 +19,7 @@ class Runner(zouqi.Runner):
     @zouqi.command
     def drive(self, something):
         # Equivalent to: parser.add_argument('something').
-        # the parsed args will be stored in self.drive.args instead of args
+        # the parsed args will be stored in self.drive.args instead of self.args
         self.show("drives a", something)
 
     @zouqi.command
