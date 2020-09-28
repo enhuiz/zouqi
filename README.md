@@ -19,6 +19,7 @@ pip install zouqi
 
 ```python
 import zouqi
+from zouqi.parsing import ignored
 
 
 def prettify(something):
@@ -43,15 +44,16 @@ class Runner(zouqi.Runner):
         self.show("drives a", something)
 
     @zouqi.command
-    def wash(self, something):
-        self.show("washes a", something)
+    def wash(self, something, hidden_option: ignored = ""):
+        # hidden option will be ignored during parsing but still passable by another function
+        self.show("washes a", something + hidden_option)
 
     @zouqi.command
     def drive_and_wash(self, something: prettify = "car"):
         # Equivalent to: parser.add_argument('--something', type=prettify, default='car').
         # Type hint is used as argument parser (a little bit abuse of type hint here).
         self.drive(something)
-        self.wash(something)
+        self.wash(something, ", good.")
 
 
 if __name__ == "__main__":
@@ -74,5 +76,5 @@ John drives a car
 ```
 $ python3 example.py drive_and_wash John --something truck
 John drives a pretty truck
-John washes a pretty truck
+John washes a pretty truck, good.
 ```

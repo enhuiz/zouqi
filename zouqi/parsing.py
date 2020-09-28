@@ -1,6 +1,10 @@
 import types
 
 
+def ignored():
+    pass
+
+
 def listof(type_):
     return lambda s: list(map(type_, s.split(",")))
 

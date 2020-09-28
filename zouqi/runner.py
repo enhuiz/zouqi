@@ -2,65 +2,81 @@ import inspect
 import argparse
 import functools
 
+from .parsing import ignored
+
+
+def extract_parameters(f, ignore=["self"]):
+    params = inspect.signature(f).parameters.values()
+    params = [p for p in params if p.name not in ignore]
+    return params
+
+
+def parse_args_from_cli(f, self):
+    empty = inspect.Parameter.empty
+    params = extract_parameters(f)
+
+    for p in params:
+        if hasattr(self.args, p.name):
+            raise argparse.ArgumentError(f"{p.name} conflicts with exsiting args.")
+
+        annotation = p.annotation
+        if annotation is empty:
+            annotation = None
+        elif annotation is ignored:
+            if p.default is empty:
+                raise TypeError(
+                    f"An argument {p.name} cannot be ignored, "
+                    "please set an default value to make it an option."
+                )
+            else:
+                continue
+
+        if p.default is empty:
+            self.add_argument(f"{p.name}", type=annotation)
+        else:
+            self.add_argument(f"--{p.name}", type=annotation, default=p.default)
+
+    # parse args from cli
+    self.parse_args(strict=True)
+
+    kwargs = {p.name: getattr(self.args, p.name, p.default) for p in params}
+
+    # remove parsed args from self.args
+    for p in params:
+        if p.annotation is not ignored:
+            delattr(self.args, p.name)
+
+    return argparse.Namespace(**kwargs)
+
+
+def parse_args_from_call(f, self, *args, **kwargs):
+    """
+    Call as function, use passed parameters to update args.
+    """
+    params = extract_parameters(f)
+
+    # args => kwargs
+    for p, a in zip(params, args):
+        kwargs[p.name] = a
+    del args
+
+    kwargs = {p.name: kwargs.get(p.name, p.default) for p in params}
+
+    return argparse.Namespace(**kwargs)
+
 
 def command(f):
     @functools.wraps(f)
     def wrapped(self, *args, **kwargs):
-        parameters = inspect.signature(f).parameters.values()
-        parameters = [p for p in parameters if p.name != "self"]
-
-        if kwargs.get("call_as_command", False):
-            # call from cli, a main command
-            # use cli parameters to update args
-            assert len(args) == 0
-
-            del kwargs["call_as_command"]
-
-            empty = inspect.Parameter.empty
-
-            for p in parameters:
-                # does not resolve command's parameters conflicts
-                if hasattr(self.args, p.name):
-                    raise argparse.ArgumentError(
-                        f"{p.name} conflicts with exsiting args."
-                    )
-
-                # use annotation as type, a little bit abuse
-                if p.annotation is empty:
-                    parser = None
-                else:
-                    parser = p.annotation
-
-                if p.default is empty:
-                    self.add_argument(f"{p.name}", type=parser)
-                else:
-                    self.add_argument(f"--{p.name}", type=parser, default=p.default)
-
-            self.parse_args(strict=True)
-
-            for p in parameters:
-                kwargs[p.name] = getattr(self.args, p.name)
-                delattr(self.args, p.name)
-
-            wrapped.args = argparse.Namespace(**kwargs)
-
-            if self.print_final_args:
+        if kwargs.get("_call_as_command", False):
+            assert len(args) == 0 and len(kwargs) == 1
+            wrapped.args = parse_args_from_cli(f, self)
+            if self.print_parsed_args:
                 print(self.args)
                 print(wrapped.args)
         else:
-            # call from other function, a minion command
-            # use passed parameters to update args
-            for p, a in zip(parameters, args):
-                kwargs[p.name] = a
-
-            kwargs = {
-                p.name: kwargs[p.name] if p.name in kwargs else p.default
-                for p in parameters
-            }
-
-            wrapped.args = argparse.Namespace(**kwargs)
-
-        return f(self, **kwargs)
+            wrapped.args = parse_args_from_call(f, self, *args, **kwargs)
+        return f(self, **vars(wrapped.args))
 
     wrapped.is_command = True
 
@@ -81,8 +97,8 @@ def possible_commands(obj):
 
 
 class Runner:
-    def __init__(self, print_final_args=False):
-        self.print_final_args = print_final_args
+    def __init__(self, print_parsed_args=False):
+        self.print_parsed_args = print_parsed_args
         self.parse_args()
 
     @property
@@ -114,7 +130,8 @@ class Runner:
         self.args = argparse.Namespace(**{**vars(self.args), **vars(args)})
 
     def run(self):
-        getattr(self, self.command)(call_as_command=True)
+        command = getattr(self, self.command)
+        command(_call_as_command=True)
 
     def autofeed(self, callable, override={}, mapping={}):
         """Priority: 1. override, 2. parsed args 3. parameters' default"""
