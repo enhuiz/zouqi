@@ -3,6 +3,7 @@ import argparse
 import functools
 
 from .parsing import ignored
+from .utils import print_args
 
 
 def extract_parameters(f, ignore=["self"]):
@@ -65,22 +66,59 @@ def parse_args_from_call(f, self, *args, **kwargs):
     return argparse.Namespace(**kwargs)
 
 
-def command(f):
-    @functools.wraps(f)
-    def wrapped(self, *args, **kwargs):
-        if kwargs.get("_call_as_command", False):
-            assert len(args) == 0 and len(kwargs) == 1
-            wrapped.args = parse_args_from_cli(f, self)
-            if self.print_parsed_args:
-                print(self.args)
-                print(wrapped.args)
+def inherit_signature(f, g):
+    """
+    Args:
+        f: dervied member function
+        g: base member function
+    """
+    f_params = inspect.signature(f).parameters.values()
+    f_params = [p for p in f_params if p.name not in ["args", "kwargs"]]
+    names = set([p.name for p in f_params])
+    g_params = inspect.signature(g).parameters.values()
+    g_params = [p for p in g_params if p.name not in names]
+
+    for i, p in enumerate(f_params):
+        if p.kind != p.POSITIONAL_OR_KEYWORD:
+            i -= 1
+            break
+
+    for p in g_params:
+        if p.kind == p.POSITIONAL_OR_KEYWORD:
+            f_params.insert(i + 1, p)
         else:
-            wrapped.args = parse_args_from_call(f, self, *args, **kwargs)
-        return f(self, **vars(wrapped.args))
+            f_params.append(p)
 
-    wrapped.is_command = True
+    f.__signature__ = inspect.Signature(f_params)
 
-    return wrapped
+    return f
+
+
+class command:
+    def __init__(self, f):
+        self.f = f
+
+    def __set_name__(self, owner, name):
+        f = self.f
+
+        parent = getattr(super(owner, owner), name, None)
+        if parent is not None:
+            inherit_signature(f, parent)
+
+        @functools.wraps(f)
+        def wrapped(self, *args, **kwargs):
+            if kwargs.get("_call_as_command", False):
+                assert len(args) == 0 and len(kwargs) == 1
+                wrapped.args = parse_args_from_cli(f, self)
+                if self.verbose:
+                    print_args(self.args, wrapped.args)
+            else:
+                wrapped.args = parse_args_from_call(f, self, *args, **kwargs)
+            return f(self, **vars(wrapped.args))
+
+        wrapped.is_command = True
+
+        setattr(owner, name, wrapped)
 
 
 def possible_commands(obj):
@@ -97,9 +135,10 @@ def possible_commands(obj):
 
 
 class Runner:
-    def __init__(self, print_parsed_args=False):
-        self.print_parsed_args = print_parsed_args
-        self.parse_args()
+    def __init__(self, prevented_arguments=[], verbose=False):
+        prevented_arguments = map(self.normalize_argument, prevented_arguments)
+        self.prevented_arguments = list(prevented_arguments)
+        self.verbose = verbose
 
     @property
     def parser(self):
@@ -108,16 +147,22 @@ class Runner:
             self.add_argument("command", choices=possible_commands(self))
         return self.__parser
 
+    @staticmethod
+    def normalize_argument(name):
+        """
+        Use '-' as default instead of '_' for option as it is easier to type.
+        """
+        if name.startswith("--"):
+            name = name.replace("_", "-")
+        return name
+
     def add_argument(self, name, **kwargs):
         """
         Add argument, only the first added argument will be recorded.
         """
-        name = name.replace("_", "-")
-        try:
+        name = self.normalize_argument(name)
+        if name not in self.prevented_arguments:
             self.parser.add_argument(name, **kwargs)
-        except argparse.ArgumentError as e:
-            if "conflicting option string" not in str(e):
-                raise e
 
     def parse_args(self, strict=False):
         if strict:
@@ -125,6 +170,7 @@ class Runner:
         else:
             self.args = self.parser.parse_known_args()[0]
         self.command = self.args.command
+        return self.args
 
     def update_args(self, args):
         self.args = argparse.Namespace(**{**vars(self.args), **vars(args)})

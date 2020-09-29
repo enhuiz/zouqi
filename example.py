@@ -36,5 +36,26 @@ class Runner(zouqi.Runner):
         self.wash(something, ", good.")
 
 
+class FancyRunner(Runner):
+    def __init__(self):
+        super().__init__()
+
+    @zouqi.command
+    def drive(self, title, *args, **kwargs):
+        # inherited other args automatically from is parent class
+        print(self.args.who, "is a", title)
+        super().drive(*args, **kwargs)
+
+
+class SuperFancyRunner(FancyRunner):
+    def __init__(self):
+        super().__init__()
+
+    @zouqi.command
+    def drive(self, *args, title: str = "super fancy driver", **kwargs):
+        # inherited other args automatically from is parent class
+        super().drive(title, *args, **kwargs)
+
+
 if __name__ == "__main__":
-    Runner().run()
+    SuperFancyRunner().run()

@@ -56,8 +56,29 @@ class Runner(zouqi.Runner):
         self.wash(something, ", good.")
 
 
+class FancyRunner(Runner):
+    def __init__(self):
+        super().__init__()
+
+    @zouqi.command
+    def drive(self, title, *args, **kwargs):
+        # inherited other args automatically from is parent class
+        print(self.args.who, "is a", title)
+        super().drive(*args, **kwargs)
+
+
+class SuperFancyRunner(FancyRunner):
+    def __init__(self):
+        super().__init__()
+
+    @zouqi.command
+    def drive(self, *args, title: str = "super fancy driver", **kwargs):
+        # inherited other args automatically from is parent class
+        super().drive(title, *args, **kwargs)
+
+
 if __name__ == "__main__":
-    Runner().run()
+    SuperFancyRunner().run()
 ```
 
 ### Runs
@@ -70,11 +91,13 @@ example.py: error: the following arguments are required: command, who
 
 ```
 $ python3 example.py drive John car
+John is a super fancy driver
 John drives a car
 ```
 
 ```
 $ python3 example.py drive_and_wash John --something truck
+John is a super fancy driver
 John drives a pretty truck
 John washes a pretty truck, good.
 ```
