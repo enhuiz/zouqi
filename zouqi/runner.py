@@ -48,7 +48,7 @@ def parse_args_from_cli(f, self):
     explicit = {
         p.name: getattr(self.args, p.name, p.default)
         for p in params
-        if p.annotation != ignored
+        if p.annotation is not ignored
     }
 
     # args passed to f without attaching to wrapped.args
@@ -79,7 +79,7 @@ def parse_args_from_call(f, self, *args, **kwargs):
             p.default,
         )
         for p in params
-        if p.annotation != ignored
+        if p.annotation is not ignored
     }
 
     implicit = {
@@ -107,7 +107,7 @@ def inherit_signature(f, g):
     g_params = [p for p in g_params if p.name not in names]
 
     for i, p in enumerate(f_params):
-        if p.kind != p.POSITIONAL_OR_KEYWORD:
+        if p.kind is not p.POSITIONAL_OR_KEYWORD:
             i -= 1
             break
 
@@ -165,9 +165,7 @@ def possible_commands(obj):
 
 
 class Runner:
-    def __init__(self, prevented_arguments=[], verbose=False):
-        prevented_arguments = map(self.normalize_argument, prevented_arguments)
-        self.prevented_arguments = list(prevented_arguments)
+    def __init__(self, verbose=False):
         self.verbose = verbose
 
     @property
@@ -191,8 +189,7 @@ class Runner:
         Add argument, only the first added argument will be recorded.
         """
         name = self.normalize_argument(name)
-        if name not in self.prevented_arguments:
-            self.parser.add_argument(name, **kwargs)
+        self.parser.add_argument(name, **kwargs)
 
     def parse_args(self, strict=False):
         if strict:
