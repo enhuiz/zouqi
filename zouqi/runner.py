@@ -2,7 +2,7 @@ import inspect
 import argparse
 import functools
 
-from .parsing import ignored
+from .parsing import ignored, flag
 from .utils import print_args
 
 
@@ -32,7 +32,11 @@ def parse_args_from_cli(f, self):
             else:
                 continue
 
-        if p.default is empty:
+        if annotation is flag:
+            if p.default is empty:
+                raise TypeError(f"Flag {p.name} should have a default value.")
+            self.add_argument(f"--{p.name}", action="store_true", default=p.default)
+        elif p.default is empty:
             self.add_argument(f"{p.name}", type=annotation)
         else:
             self.add_argument(f"--{p.name}", type=annotation, default=p.default)
@@ -40,7 +44,11 @@ def parse_args_from_cli(f, self):
     # parse args from cli
     self.parse_args(strict=True)
 
-    kwargs = {p.name: getattr(self.args, p.name, p.default) for p in params}
+    kwargs = {
+        p.name: getattr(self.args, p.name, p.default)
+        for p in params
+        if p.annotation != ignored
+    }
 
     # remove parsed args from self.args
     for p in params:
@@ -61,7 +69,14 @@ def parse_args_from_call(f, self, *args, **kwargs):
         kwargs[p.name] = a
     del args
 
-    kwargs = {p.name: kwargs.get(p.name, p.default) for p in params}
+    kwargs = {
+        p.name: kwargs.get(
+            p.name,
+            p.default,
+        )
+        for p in params
+        if p.annotation != ignored
+    }
 
     return argparse.Namespace(**kwargs)
 

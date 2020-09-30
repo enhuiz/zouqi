@@ -5,6 +5,10 @@ def ignored():
     pass
 
 
+def flag():
+    pass
+
+
 def listof(type_):
     return lambda s: list(map(type_, s.split(",")))
 
