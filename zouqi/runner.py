@@ -44,18 +44,22 @@ def parse_args_from_cli(f, self):
     # parse args from cli
     self.parse_args(strict=True)
 
-    kwargs = {
+    # args attached explicitly to the wrapped.args, and passed to f
+    explicit = {
         p.name: getattr(self.args, p.name, p.default)
         for p in params
         if p.annotation != ignored
     }
+
+    # args passed to f without attaching to wrapped.args
+    implicit = {}
 
     # remove parsed args from self.args
     for p in params:
         if p.annotation is not ignored:
             delattr(self.args, p.name)
 
-    return argparse.Namespace(**kwargs)
+    return explicit, implicit
 
 
 def parse_args_from_call(f, self, *args, **kwargs):
@@ -69,7 +73,7 @@ def parse_args_from_call(f, self, *args, **kwargs):
         kwargs[p.name] = a
     del args
 
-    kwargs = {
+    explicit = {
         p.name: kwargs.get(
             p.name,
             p.default,
@@ -78,7 +82,16 @@ def parse_args_from_call(f, self, *args, **kwargs):
         if p.annotation != ignored
     }
 
-    return argparse.Namespace(**kwargs)
+    implicit = {
+        p.name: kwargs.get(
+            p.name,
+            p.default,
+        )
+        for p in params
+        if p.annotation == ignored
+    }
+
+    return explicit, implicit
 
 
 def inherit_signature(f, g):
@@ -124,12 +137,14 @@ class command:
         def wrapped(self, *args, **kwargs):
             if kwargs.get("_call_as_command", False):
                 assert len(args) == 0 and len(kwargs) == 1
-                wrapped.args = parse_args_from_cli(f, self)
+                explicit, implicit = parse_args_from_cli(f, self)
+                wrapped.args = argparse.Namespace(**explicit)
                 if self.verbose:
                     print_args(self.args, wrapped.args)
             else:
-                wrapped.args = parse_args_from_call(f, self, *args, **kwargs)
-            return f(self, **vars(wrapped.args))
+                explicit, implicit = parse_args_from_call(f, self, *args, **kwargs)
+                wrapped.args = argparse.Namespace(**explicit)
+            return f(self, **explicit, **implicit)
 
         wrapped.is_command = True
 
