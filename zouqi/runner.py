@@ -18,7 +18,7 @@ def parse_args_from_cli(f, self):
 
     for p in params:
         if hasattr(self.args, p.name):
-            raise argparse.ArgumentError(f"{p.name} conflicts with exsiting args.")
+            raise TypeError(f"{p.name} conflicts with exsiting args.")
 
         annotation = p.annotation
         if annotation is empty:
