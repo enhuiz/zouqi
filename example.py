@@ -40,7 +40,7 @@ class FancyRunner(Runner):
     def __init__(self):
         super().__init__()
 
-    @zouqi.command
+    @zouqi.command(inherit=True)
     def drive(self, title, *args, **kwargs):
         # other args are automatically inherited from its parent class
         print(self.args.who, "is a", title)
@@ -51,7 +51,7 @@ class SuperFancyRunner(FancyRunner):
     def __init__(self):
         super().__init__()
 
-    @zouqi.command
+    @zouqi.command(inherit=True)
     def drive(self, *args, title: str = "super fancy driver", **kwargs):
         super().drive(title, *args, **kwargs)
 

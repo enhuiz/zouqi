@@ -23,7 +23,7 @@ def message_box(title, sections, aligner="<"):
     return "\n".join(out)
 
 
-def print_args(args, cmd_args):
-    args = [f"{k}: {v}" for k, v in sorted(vars(args).items())]
-    cmd_args = [f"{k}: {v}" for k, v in sorted(vars(cmd_args).items())]
-    print(message_box("Arguments", ["\n".join(args), "\n".join(cmd_args)]))
+def print_args(global_args, command_args):
+    global_args = [f"{k}: {v}" for k, v in sorted(global_args.items())]
+    command_args = [f"{k}: {v}" for k, v in sorted(command_args.items())]
+    print(message_box("Arguments", ["\n".join(global_args), "\n".join(command_args)]))
