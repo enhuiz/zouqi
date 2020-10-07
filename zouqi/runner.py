@@ -34,7 +34,7 @@ def read_kwargs_from_cli(f, runner):
 
         if annotation is flag:
             if p.default is empty:
-                raise TypeError(f"Flag {p.name} should have a default value.")
+                p.default = False
             runner.add_argument(f"--{p.name}", action="store_true", default=p.default)
         elif p.default is empty:
             runner.add_argument(f"{p.name}", type=annotation)
@@ -60,7 +60,7 @@ def read_kwargs_from_cli(f, runner):
     }
 
 
-def read_kwargs_from_call(f, *args, **kwargs):
+def read_kwargs_from_call(f, runner, *args, **kwargs):
     """
     Call as function, use passed parameters to update args.
     """
@@ -75,6 +75,11 @@ def read_kwargs_from_call(f, *args, **kwargs):
     for p in params:
         if p.name not in kwargs and p.default != empty:
             kwargs[p.name] = p.default
+
+    # update runner.args
+    for p in params:
+        if p.annotation != ignored:
+            setattr(runner.args, p.name, kwargs.get(p.name, p.default))
 
     return kwargs
 
@@ -131,7 +136,7 @@ class _Command:
                 assert len(args) == 0 and len(kwargs) == 1
                 kwargs = read_kwargs_from_cli(f, runner)
             else:
-                kwargs = read_kwargs_from_call(f, *args, **kwargs)
+                kwargs = read_kwargs_from_call(f, runner, *args, **kwargs)
             return f(runner, **kwargs)
 
         wrapped.is_command = True
