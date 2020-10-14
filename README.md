@@ -9,7 +9,7 @@ ZouQi (『走起』 in Chinese) is a CLI starter similar to [python-fire]. It is
 
 ## Installation
 
-```bash
+```plain
 pip install zouqi
 ```
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 
 ### Runs
 
-```bash
+```plain
 $ python3 example.py
 ======= Calling in the script ========
 John is a super fancy driver
@@ -93,7 +93,7 @@ usage: example.py [-h] [--print-args] {drive,drive_and_wash,wash} who
 example.py: error: the following arguments are required: command, who
 ```
 
-```bash
+```plain
 $ python3 example.py drive John car
 ======= Calling in the script ========
 John is a super fancy driver
@@ -104,7 +104,7 @@ John is a super fancy driver
 John drives a car
 ```
 
-```bash
+```plain
 $ python3 example.py drive_and_wash John --something truck --print-args
 ======= Calling in the script ========
 John is a super fancy driver
