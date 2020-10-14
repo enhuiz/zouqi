@@ -1,23 +1,27 @@
-# ZouQi: A Python CLI Starter Purely Built on argparse.
+ZouQi: A Python CLI Starter Purely Built on argparse.
+=====================================================
 
-ZouQi (『走起』 in Chinese) is a CLI starter similar to [python-fire](https://github.com/google/python-fire). It is purely built on argparse. 
+ZouQi (『走起』 in Chinese) is a CLI starter similar to [python-fire]. It is purely built on argparse.
 
-## Why not [python-fire](https://github.com/google/python-fire)?
+Why not [python-fire]?
+----------------------
 
-  - Fire cannot be used to share options between commands easily.
-  - Fire treat all member functions as its command, which is not desirable in many situations.
+-   Fire cannot be used to share options between commands easily.
+-   Fire treat all member functions as its command, which is not desirable in many situations.
 
-## Installation
+Installation
+------------
 
-```
+``` {.bash}
 pip install zouqi
 ```
 
-## Example
+Example
+-------
 
 ### Code
 
-```python
+``` {.python}
 import zouqi
 from zouqi.parsing import ignored
 
@@ -26,15 +30,13 @@ def prettify(something):
     return f"pretty {something}"
 
 
-class Runner(zouqi.Runner):
-    def __init__(self):
-        super().__init__()
-        self.add_argument("who", type=str)
-        self.parse_args()
+class Runner:
+    def __init__(self, who: str):
+        self.who = who
 
     # (This is not a command.)
     def show(self, action, something):
-        print(self.args.who, action, something)
+        print(self.who, action, something)
 
     # Decorate the command with the zouqi.command decorator.
     @zouqi.command
@@ -57,19 +59,18 @@ class Runner(zouqi.Runner):
 
 
 class FancyRunner(Runner):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    @zouqi.command(inherit=True)
     def drive(self, title, *args, **kwargs):
         # other args are automatically inherited from its parent class
-        print(self.args.who, "is a", title)
+        print(self.who, "is a", title)
         super().drive(*args, **kwargs)
 
 
 class SuperFancyRunner(FancyRunner):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @zouqi.command(inherit=True)
     def drive(self, *args, title: str = "super fancy driver", **kwargs):
@@ -77,26 +78,55 @@ class SuperFancyRunner(FancyRunner):
 
 
 if __name__ == "__main__":
-    SuperFancyRunner().run()
+    print("======= Calling in the script ========")
+    SuperFancyRunner("John").drive_and_wash("car")
+    print("======= Calling from the CLI ========")
+    zouqi.start(SuperFancyRunner)
 ```
 
 ### Runs
 
-```
-$ python3 example.py 
-usage: example.py [-h] {drive,drive_and_wash,wash}
-example.py: error: the following arguments are required: command
+``` {.bash}
+$ python3 example.py
+======= Calling in the script ========
+John is a super fancy driver
+John drives a car
+John washes a car, good.
+======= Calling from the CLI ========
+usage: example.py [-h] [--print-args] {drive,drive_and_wash,wash} who
+example.py: error: the following arguments are required: command, who
 ```
 
-```
+``` {.bash}
 $ python3 example.py drive John car
+======= Calling in the script ========
+John is a super fancy driver
+John drives a car
+John washes a car, good.
+======= Calling from the CLI ========
 John is a super fancy driver
 John drives a car
 ```
 
-```
-$ python3 example.py drive_and_wash John --something truck
+``` {.bash}
+$ python3 example.py drive_and_wash John --something truck --print-args
+======= Calling in the script ========
+John is a super fancy driver
+John drives a car
+John washes a car, good.
+======= Calling from the CLI ========
+┌─────────────────────────┐
+│        Arguments        │
+├─────────────────────────┤
+│command: drive_and_wash  │
+│print_args: True         │
+│who: John                │
+├─────────────────────────┤
+│something: pretty truck  │
+└─────────────────────────┘
 John is a super fancy driver
 John drives a pretty truck
 John washes a pretty truck, good.
 ```
+
+  [python-fire]: https://github.com/google/python-fire
