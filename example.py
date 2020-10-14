@@ -6,15 +6,13 @@ def prettify(something):
     return f"pretty {something}"
 
 
-class Runner(zouqi.Runner):
-    def __init__(self):
-        super().__init__()
-        self.add_argument("who", type=str)
-        self.parse_args()
+class Runner:
+    def __init__(self, who: str):
+        self.who = who
 
     # (This is not a command.)
     def show(self, action, something):
-        print(self.args.who, action, something)
+        print(self.who, action, something)
 
     # Decorate the command with the zouqi.command decorator.
     @zouqi.command
@@ -37,19 +35,18 @@ class Runner(zouqi.Runner):
 
 
 class FancyRunner(Runner):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
-    @zouqi.command(inherit=True)
     def drive(self, title, *args, **kwargs):
         # other args are automatically inherited from its parent class
-        print(self.args.who, "is a", title)
+        print(self.who, "is a", title)
         super().drive(*args, **kwargs)
 
 
 class SuperFancyRunner(FancyRunner):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     @zouqi.command(inherit=True)
     def drive(self, *args, title: str = "super fancy driver", **kwargs):
@@ -57,4 +54,7 @@ class SuperFancyRunner(FancyRunner):
 
 
 if __name__ == "__main__":
-    SuperFancyRunner().run()
+    print("======= Calling in the script ========")
+    SuperFancyRunner("John").drive_and_wash("car")
+    print("======= Calling from the CLI ========")
+    zouqi.start(SuperFancyRunner)
