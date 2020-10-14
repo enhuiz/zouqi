@@ -1,27 +1,23 @@
-ZouQi: A Python CLI Starter Purely Built on argparse.
-=====================================================
+# ZouQi: A Python CLI Starter Purely Built on argparse.
 
 ZouQi (『走起』 in Chinese) is a CLI starter similar to [python-fire]. It is purely built on argparse.
 
-Why not [python-fire]?
-----------------------
+## Why not [python-fire]?
 
 -   Fire cannot be used to share options between commands easily.
 -   Fire treat all member functions as its command, which is not desirable in many situations.
 
-Installation
-------------
+## Installation
 
-``` {.bash}
+```bash
 pip install zouqi
 ```
 
-Example
--------
+## Example
 
 ### Code
 
-``` {.python}
+```python
 import zouqi
 from zouqi.parsing import ignored
 
@@ -86,7 +82,7 @@ if __name__ == "__main__":
 
 ### Runs
 
-``` {.bash}
+```bash
 $ python3 example.py
 ======= Calling in the script ========
 John is a super fancy driver
@@ -97,7 +93,7 @@ usage: example.py [-h] [--print-args] {drive,drive_and_wash,wash} who
 example.py: error: the following arguments are required: command, who
 ```
 
-``` {.bash}
+```bash
 $ python3 example.py drive John car
 ======= Calling in the script ========
 John is a super fancy driver
@@ -108,7 +104,7 @@ John is a super fancy driver
 John drives a car
 ```
 
-``` {.bash}
+```bash
 $ python3 example.py drive_and_wash John --something truck --print-args
 ======= Calling in the script ========
 John is a super fancy driver
@@ -129,4 +125,4 @@ John drives a pretty truck
 John washes a pretty truck, good.
 ```
 
-  [python-fire]: https://github.com/google/python-fire
+[python-fire]: https://github.com/google/python-fire
