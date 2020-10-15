@@ -19,36 +19,65 @@ def inherit_signature(f, bases):
     if isinstance(bases, type):
         bases = [bases]
 
+    POSITIONAL_ONLY = inspect.Parameter.POSITIONAL_ONLY
+    POSITIONAL_OR_KEYWORD = inspect.Parameter.POSITIONAL_OR_KEYWORD
+    VAR_POSITIONAL = inspect.Parameter.VAR_POSITIONAL
+    KEYWORD_ONLY = inspect.Parameter.KEYWORD_ONLY
+    VAR_KEYWORD = inspect.Parameter.VAR_KEYWORD
+
     empty = inspect.Parameter.empty
 
-    def merge(f_params, g_params):
-        i = -1
-        for i, p in enumerate(g_params):
-            if p.default is not empty:
-                i -= 1
-                break
-        for p in f_params:
-            if p.default is empty:
-                g_params.insert(i + 1, p)
-            else:
-                g_params.append(p)
-        return g_params
+    def merge(fps, gps):
+        if any([p.kind in [VAR_KEYWORD, VAR_POSITIONAL] for p in gps]):
+            raise TypeError("Parent class contains uncertain parameters.")
 
-    def not_var(p):
-        return p.kind not in [p.VAR_POSITIONAL, p.VAR_KEYWORD]
+        names = set()
+        params = []
+
+        def add(p):
+            names.add(p.name)
+            params.append(p)
+
+        i, j = 0, 0
+        while i < len(fps):
+            fp = fps[i]
+            if fp.kind is VAR_POSITIONAL:
+                # replace the var positional with parent's PO and P/W
+                while j < len(gps):
+                    gp = gps[j]
+                    if gp.name not in names and gp.kind in [
+                        POSITIONAL_ONLY,
+                        POSITIONAL_OR_KEYWORD,
+                    ]:
+                        add(gp)
+                    j += 1
+            elif fp.kind is VAR_KEYWORD:
+                # replace the var positional with parent's PO and P/W
+                while j < len(gps):
+                    gp = gps[j]
+                    if gp.name not in names and gp.kind in [
+                        POSITIONAL_OR_KEYWORD,
+                        KEYWORD_ONLY,
+                    ]:
+                        add(gp)
+                    j += 1
+            elif fp.name not in names:
+                add(fp)
+            i += 1
+
+        return params
 
     def recursively_inherit_signature(f, cls):
-        if cls.__bases__:
-            for base in cls.__bases__:
-                recursively_inherit_signature(f, base)
+        if cls is object:
+            return
 
         g = getattr(cls, f.__name__, None)
 
         if g is not None:
-            f_params = read_params(f, lambda p: not_var(p) and p.name is not "self")
-            existed = [p.name for p in f_params]
-            g_params = read_params(g, lambda p: not_var(p) and p.name not in existed)
-            params = merge(f_params, g_params)
+            if cls.__bases__:
+                for base in cls.__bases__:
+                    recursively_inherit_signature(g, base)
+            params = merge(read_params(f), read_params(g))
             f.__signature__ = inspect.Signature(params)
 
     for base in bases:
@@ -107,13 +136,6 @@ def command(f=None, inherit=None):
     return partial(command, inherit=inherit)
 
 
-def call(f, **kwargs):
-    """Call with needed kwargs"""
-    names = {p.name for p in read_params(f)}
-    kwargs = {k: v for k, v in kwargs.items() if k in names}
-    return f(**kwargs)
-
-
 def start(cls, default_command=None):
     # extract possible commands
     possible_commands = []
@@ -158,5 +180,8 @@ def start(cls, default_command=None):
     if args.print_args:
         print_args(args, command_args)
 
-    obj = call(cls, **vars(args))
-    call(cmdfn, self=obj, **vars(command_args))
+    acceptees = {p.name for p in read_params(cls.__init__)}
+    obj = cls(**{k: v for k, v in vars(args).items() if k in acceptees})
+
+    acceptees = {p.name for p in read_params(cmdfn)}
+    cmdfn(obj, **{k: v for k, v in vars(command_args).items() if k in acceptees})
