@@ -2,7 +2,7 @@ import inspect
 import argparse
 from functools import partial
 
-from .parsing import ignored, flag
+from .parsing import ignored, flag, versatile, choices
 from .utils import print_args
 
 
@@ -102,34 +102,38 @@ def add_arguments_from_function_signature(parser, f):
         if p.name in existed:
             raise TypeError(f"{p.name} conflicts with exsiting argument.")
 
-        annotation = None if p.annotation is empty else p.annotation
-
-        if annotation is ignored:
+        if p.annotation is ignored:
             if p.default is empty:
                 raise TypeError(
-                    f"An argument {p.name} cannot be ignored, please set an default value to make it an option."
-                )
-        else:
-            if annotation is flag:
-                parser.add_argument(
-                    normalize_option_name(f"--{p.name}"),
-                    action="store_true",
-                    default=False if p.default is empty else p.default,
-                )
-            elif p.default is empty:
-                parser.add_argument(
-                    p.name,
-                    type=annotation,
+                    f"An argument {name} cannot be ignored, "
+                    "please set an default value to make it an option."
                 )
             else:
-                parser.add_argument(
-                    normalize_option_name(f"--{p.name}"),
-                    type=annotation,
-                    default=p.default,
-                )
+                continue
+
+        if p.default is not empty or p.annotation is flag:
+            name = normalize_option_name(f"--{p.name}")
+        else:
+            name = p.name
+
+        default = None if p.default is empty else p.default
+
+        kwargs = dict(default=default)
+
+        if p.annotation is flag:
+            default = False if default is None else default
+            kwargs.update(dict(default=default, action="store_true"))
+        elif type(p.annotation) is choices:
+            kwargs.update(dict(choices=p.annotation))
+        elif type(p.annotation) is versatile:
+            kwargs.update(**p.annotation)
+        else:
+            kwargs.update(dict(type=p.annotation))
+
+        parser.add_argument(name, **kwargs)
 
 
-def command(f=None, inherit=None):
+def command(f=None, inherit=True):
     if f is not None:
         f._command = dict(inherit=inherit)
         return f
@@ -181,7 +185,26 @@ def start(cls, default_command=None):
         print_args(args, command_args)
 
     acceptees = {p.name for p in read_params(cls.__init__)}
-    obj = cls(**{k: v for k, v in vars(args).items() if k in acceptees})
+    obj = cls(
+        **{
+            key: postprocess_value(value)
+            for key, value in vars(args).items()
+            if key in acceptees
+        }
+    )
 
     acceptees = {p.name for p in read_params(cmdfn)}
-    cmdfn(obj, **{k: v for k, v in vars(command_args).items() if k in acceptees})
+    cmdfn(
+        obj,
+        **{
+            key: postprocess_value(value)
+            for key, value in vars(command_args).items()
+            if key in acceptees
+        },
+    )
+
+
+def postprocess_value(value):
+    if isinstance(value, str) and value.lower() in ["null", "none"]:
+        value = None
+    return value
