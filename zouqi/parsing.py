@@ -9,7 +9,7 @@ class flag:
     pass
 
 
-class versatile(dict):
+class custom(dict):
     pass
 
 

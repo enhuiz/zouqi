@@ -2,7 +2,7 @@ import inspect
 import argparse
 from functools import partial
 
-from .parsing import ignored, flag, versatile, choices
+from .parsing import ignored, flag, custom, choices
 from .utils import print_args
 
 
@@ -125,9 +125,9 @@ def add_arguments_from_function_signature(parser, f):
             kwargs.update(dict(default=default, action="store_true"))
         elif type(p.annotation) is choices:
             kwargs.update(dict(choices=p.annotation))
-        elif type(p.annotation) is versatile:
+        elif type(p.annotation) is custom:
             kwargs.update(**p.annotation)
-        else:
+        elif p.annotation is not empty:
             kwargs.update(dict(type=p.annotation))
 
         parser.add_argument(name, **kwargs)
