@@ -57,7 +57,7 @@ def inherit_signature(f, bases):
     return f
 
 
-def normalize_argument_name(name):
+def normalize_option_name(name):
     """Use '-' as default instead of '_' for option as it is easier to type."""
     if name.startswith("--"):
         name = name.replace("_", "-")
@@ -81,15 +81,23 @@ def add_arguments_from_function_signature(parser, f):
                     f"An argument {p.name} cannot be ignored, please set an default value to make it an option."
                 )
         else:
-            name = normalize_argument_name(p.name)
             if annotation is flag:
-                if p.default is empty:
-                    p.default = False
-                parser.add_argument(f"--{name}", action="store_true", default=p.default)
+                parser.add_argument(
+                    normalize_option_name(f"--{p.name}"),
+                    action="store_true",
+                    default=False if p.default is empty else p.default,
+                )
             elif p.default is empty:
-                parser.add_argument(name, type=annotation)
+                parser.add_argument(
+                    p.name,
+                    type=annotation,
+                )
             else:
-                parser.add_argument(f"--{name}", type=annotation, default=p.default)
+                parser.add_argument(
+                    normalize_option_name(f"--{p.name}"),
+                    type=annotation,
+                    default=p.default,
+                )
 
 
 def command(f=None, inherit=None):
@@ -101,8 +109,7 @@ def command(f=None, inherit=None):
 
 def call(f, **kwargs):
     """Call with needed kwargs"""
-    params = read_params(f)
-    names = [p.name for p in params]
+    names = {p.name for p in read_params(f)}
     kwargs = {k: v for k, v in kwargs.items() if k in names}
     return f(**kwargs)
 
@@ -138,8 +145,8 @@ def start(cls, default_command=None):
     args = parser.parse_known_args()[0]
     args.command = args.command[0]
 
-    command_func = getattr(cls, args.command)
-    add_arguments_from_function_signature(parser, command_func)
+    cmdfn = getattr(cls, args.command)
+    add_arguments_from_function_signature(parser, cmdfn)
     command_args = parser.parse_args()
 
     for key in vars(args):
@@ -152,4 +159,4 @@ def start(cls, default_command=None):
         print_args(args, command_args)
 
     obj = call(cls, **vars(args))
-    call(command_func, self=obj, **vars(command_args))
+    call(cmdfn, self=obj, **vars(command_args))

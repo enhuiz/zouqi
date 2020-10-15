@@ -17,6 +17,21 @@ def tupleof(type_):
     return lambda s: tuple(map(type_, s.split(",")))
 
 
+def choices(v):
+    try:
+        v = list(v)
+    except:
+        raise ValueError(f"Expect the choices to be iterable but get {v}.")
+
+    def parser(s):
+        if s is None:
+            return s
+        assert s in v, f"{s} is not in possible choices: {v}."
+        return s
+
+    return parser
+
+
 def str2bool(v):
     assert v.lower() in ["true", "false"]
     return v.lower() == "true"
@@ -27,7 +42,7 @@ def optional(type_):
 
 
 def union(*types):
-    def loader(s):
+    def parser(s):
         for typ in types:
             try:
                 return typ(s)
@@ -35,7 +50,7 @@ def union(*types):
                 pass
         raise TypeError(s)
 
-    return loader
+    return parser
 
 
 class lambda_:
