@@ -31,11 +31,11 @@ def inherit_signature(f, bases):
         if any([p.kind in [VAR_KEYWORD, VAR_POSITIONAL] for p in gps]):
             raise TypeError("Parent class contains uncertain parameters.")
 
-        names = set()
+        indices = {}
         params = []
 
         def add(p):
-            names.add(p.name)
+            indices[p.name] = len(params)
             params.append(p)
 
         i, j = 0, 0
@@ -45,7 +45,7 @@ def inherit_signature(f, bases):
                 # replace the var positional with parent's PO and P/W
                 while j < len(gps):
                     gp = gps[j]
-                    if gp.name not in names and gp.kind in [
+                    if gp.name not in indices and gp.kind in [
                         POSITIONAL_ONLY,
                         POSITIONAL_OR_KEYWORD,
                     ]:
@@ -55,14 +55,19 @@ def inherit_signature(f, bases):
                 # replace the var positional with parent's PO and P/W
                 while j < len(gps):
                     gp = gps[j]
-                    if gp.name not in names and gp.kind in [
+                    if gp.name not in indices and gp.kind in [
                         POSITIONAL_OR_KEYWORD,
                         KEYWORD_ONLY,
                     ]:
                         add(gp)
                     j += 1
-            elif fp.name not in names:
+            elif fp.name in indices:
+                # override
+                del params[indices[fp.name]]
                 add(fp)
+            else:
+                add(fp)
+
             i += 1
 
         return params
