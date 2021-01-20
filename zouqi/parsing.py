@@ -1,6 +1,3 @@
-import types
-
-
 class ignored:
     pass
 
@@ -20,3 +17,12 @@ class choices(list):
 def boolean(v):
     assert v.lower() in ["true", "false"]
     return v.lower() == "true"
+
+
+def optional(parser):
+    def parse(s):
+        if s.lower() in ["null", "none"]:
+            return None
+        return parser(s)
+
+    return parse
