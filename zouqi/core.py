@@ -108,7 +108,7 @@ def add_arguments_from_function_signature(parser, f):
         if p.annotation is ignored:
             if p.default is empty:
                 raise TypeError(
-                    f"An argument {name} cannot be ignored, "
+                    f"An argument {p.name} cannot be ignored, "
                     "please set an default value to make it an option."
                 )
             else:

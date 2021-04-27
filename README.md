@@ -116,9 +116,8 @@ John washes a car, good.
 ├─────────────────────────┤
 │command: drive_and_wash  │
 │print_args: True         │
-│who: John                │
-├─────────────────────────┤
 │something: pretty truck  │
+│who: John                │
 └─────────────────────────┘
 John is a super fancy driver
 John drives a pretty truck
