@@ -172,8 +172,12 @@ def start(cls):
         print_args(args)
 
     params = {p.name for p in parse_params(cls.__init__)}
-    obj = cls(**{key: value for key, value in vars(args).items() if key in params})
+    instance = cls(**{key: value for key, value in vars(args).items() if key in params})
 
-    command_func = getattr(obj, args.command)
+    # if there is an placeholder, then set args to the instance
+    if hasattr(instance, "args") and instance.args is None:
+        instance.args = args
+
+    command_func = getattr(instance, args.command)
     params = {p.name for p in parse_params(command_func)}
     command_func(**{key: value for key, value in vars(args).items() if key in params})
