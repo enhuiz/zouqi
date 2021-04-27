@@ -2,11 +2,11 @@ import inspect
 import argparse
 from functools import partial
 
-from .parsing import ignored, flag, custom, choices
+from .parsing import ignored, flag, custom
 from .utils import print_args
 
 
-def read_params(f, predicate=lambda p: True):
+def parse_params(f, predicate=lambda _: True):
     params = inspect.signature(f).parameters.values()
     params = [p for p in params if predicate(p)]
     return params
@@ -24,8 +24,6 @@ def inherit_signature(f, bases):
     VAR_POSITIONAL = inspect.Parameter.VAR_POSITIONAL
     KEYWORD_ONLY = inspect.Parameter.KEYWORD_ONLY
     VAR_KEYWORD = inspect.Parameter.VAR_KEYWORD
-
-    empty = inspect.Parameter.empty
 
     def merge(fps, gps):
         if any([p.kind in [VAR_KEYWORD, VAR_POSITIONAL] for p in gps]):
@@ -82,7 +80,7 @@ def inherit_signature(f, bases):
             if cls.__bases__:
                 for base in cls.__bases__:
                     recursively_inherit_signature(g, base)
-            params = merge(read_params(f), read_params(g))
+            params = merge(parse_params(f), parse_params(g))
             f.__signature__ = inspect.Signature(params)
 
     for base in bases:
@@ -100,7 +98,7 @@ def normalize_option_name(name):
 
 def add_arguments_from_function_signature(parser, f):
     empty = inspect.Parameter.empty
-    params = read_params(f, lambda p: p.name is not "self")
+    params = parse_params(f, lambda p: p.name != "self")
     existed = {a.dest for a in parser._actions}
 
     for p in params:
@@ -128,8 +126,6 @@ def add_arguments_from_function_signature(parser, f):
         if p.annotation is flag:
             default = False if default is None else default
             kwargs.update(dict(default=default, action="store_true"))
-        elif type(p.annotation) is choices:
-            kwargs.update(dict(choices=p.annotation))
         elif type(p.annotation) is custom:
             kwargs.update(**p.annotation)
         elif p.annotation is not empty:
@@ -145,71 +141,39 @@ def command(f=None, inherit=True):
     return partial(command, inherit=inherit)
 
 
-def start(cls, default_command=None):
+def start(cls):
     # extract possible commands
-    possible_commands = []
-    for command, func in inspect.getmembers(cls, inspect.isfunction):
+    command_names = []
+    for name, func in inspect.getmembers(cls, inspect.isfunction):
         if hasattr(func, "_command"):
-            possible_commands.append(command)
+            command_names.append(name)
+            # inherit the command
             if func._command["inherit"]:
                 inherit_signature(func, cls.__bases__)
 
-    if default_command is not None and default_command not in possible_commands:
-        raise ValueError(
-            f'The given default command "{default_command}" is not a command!'
-        )
-
-    # force to inherit for __init__
+    # inherit __init__
     inherit_signature(cls.__init__, cls.__bases__)
 
     # initalize parser for the cls
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "command",
-        type=str,
-        nargs="?" if default_command else 1,
-        choices=possible_commands,
-        default=default_command,
-    )
-    parser.add_argument("--print-args", action="store_true")
-    add_arguments_from_function_signature(parser, cls.__init__)
-    args = parser.parse_known_args()[0]
-    args.command = args.command[0]
+    subparsers = parser.add_subparsers(dest="command", required=True)
+    subparsers = {name: subparsers.add_parser(name) for name in command_names}
 
-    cmdfn = getattr(cls, args.command)
-    add_arguments_from_function_signature(parser, cmdfn)
-    command_args = parser.parse_args()
+    for subparser in subparsers.values():
+        add_arguments_from_function_signature(subparser, cls.__init__)
+        subparser.add_argument("--print-args", action="store_true")
 
-    for key in vars(args):
-        try:
-            delattr(command_args, key)
-        except:
-            pass
+    for name in command_names:
+        add_arguments_from_function_signature(subparsers[name], getattr(cls, name))
+
+    args = parser.parse_args()
 
     if args.print_args:
-        print_args(args, command_args)
+        print_args(args)
 
-    acceptees = {p.name for p in read_params(cls.__init__)}
-    obj = cls(
-        **{
-            key: postprocess_value(value)
-            for key, value in vars(args).items()
-            if key in acceptees
-        }
-    )
+    params = {p.name for p in parse_params(cls.__init__)}
+    obj = cls(**{key: value for key, value in vars(args).items() if key in params})
 
-    acceptees = {p.name for p in read_params(cmdfn)}
-    cmdfn(
-        obj,
-        **{
-            key: postprocess_value(value)
-            for key, value in vars(command_args).items()
-            if key in acceptees
-        },
-    )
-
-
-def postprocess_value(value):
-    if isinstance(value, str) and value.lower() in ["null", "none"]:
-        value = None
-    return value
+    command_func = getattr(obj, args.command)
+    params = {p.name for p in parse_params(command_func)}
+    command_func(**{key: value for key, value in vars(args).items() if key in params})

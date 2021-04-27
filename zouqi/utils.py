@@ -23,13 +23,9 @@ def message_box(title, sections, aligner="<"):
     return "\n".join(out)
 
 
-def print_args(args, command_args):
-    args, command_args = map(vars, [args, command_args])
-    args = [f"{k}: {v}" for k, v in sorted(args.items())]
-    command_args = [f"{k}: {v}" for k, v in sorted(command_args.items())]
+def print_args(args):
+    args = [f"{k}: {v}" for k, v in sorted(vars(args).items())]
     sections = []
     if len(args):
         sections.append("\n".join(args))
-    if len(command_args):
-        sections.append("\n".join(command_args))
     print(message_box("Arguments", sections))
