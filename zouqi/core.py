@@ -175,7 +175,7 @@ def start(cls):
     instance = cls(**{key: value for key, value in vars(args).items() if key in params})
 
     # if there is an placeholder, then set args to the instance
-    if getattr(instance, "args") is None:
+    if hasattr(instance, "args") and instance.args is None:
         instance.args = args
 
     command_func = getattr(instance, args.command)
