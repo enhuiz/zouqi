@@ -27,7 +27,7 @@ def get_parser(t):
     origin = get_origin(t)
     if origin is None:
         return t
-    elif origin is Custom:
+    elif origin is Annotated:
         return get_parser(get_args(t)[0])
     elif origin is Union:
         return union_parsers(*map(get_parser, get_args(t)))
@@ -51,6 +51,6 @@ def union_parsers(*parsers):
 if __name__ == "__main__":
     assert get_parser(Optional[bool])("None") == None
     assert get_parser(bool)("true") == True
-    assert get_parser(Custom[float, ""])("235.5") == 235.5
+    assert get_parser(Annotated[float, ""])("235.5") == 235.5
     assert get_parser(Union[bool, float])("235.5") == 235.5
     assert get_parser(Union[bool, int])("235.5") == 235.5

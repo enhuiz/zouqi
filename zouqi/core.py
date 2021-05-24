@@ -2,8 +2,8 @@ import inspect
 import argparse
 from functools import partial
 
-from .parsing import get_parser, get_args, get_origin
-from .typing import Ignored, Flag, Custom
+from .parsing import get_parser
+from .typing import Ignored, Flag, Annotated, get_annotated_data
 from .utils import print_args, delete_first, find_first, find_first_index
 
 
@@ -95,22 +95,30 @@ def add_arguments_from_params(parser, params):
         else:
             name = p.name
 
-        kwargs = dict(
-            default=None if p.default is empty else p.default,
-            type=None if p.annotation is empty else get_parser(p.annotation),
-        )
+        data = {
+            "default": None if p.default is empty else p.default,
+            "type": None if p.annotation is empty else get_parser(p.annotation),
+        }
+
+        data.update(get_annotated_data(p.annotation))
 
         if p.annotation is Flag:
-            if kwargs["default"] is None:
-                kwargs["default"] = False
-            if kwargs["default"]:
-                raise TypeError("The default value of a flag cannot be true.")
-            kwargs["action"] = "store_true"
-            del kwargs["type"]
-        elif get_origin(p.annotation) is Custom:
-            kwargs.update(get_args(p.annotation)[1])
+            del data["type"]
 
-        parser.add_argument(name, **kwargs)
+        allowed = [
+            "action",
+            "nargs",
+            "const",
+            "default",
+            "type",
+            "choices",
+            "required",
+            "help",
+            "metavar",
+            "dest",
+        ]
+
+        parser.add_argument(name, **{k: data[k] for k in data if k in allowed})
 
 
 def command(f=None, inherit=True):
