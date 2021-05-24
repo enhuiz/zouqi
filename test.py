@@ -1,5 +1,7 @@
 import sys
 from unittest.mock import patch
+from argparse import Namespace
+from typing import Optional
 
 import zouqi
 from zouqi.typing import Ignored, Custom
@@ -24,7 +26,6 @@ class Driver:
     @zouqi.command
     def drive(self, something):
         # equivalent to: parser.add_argument('something').
-        # the parsed args will be stored in self.drive.args instead of self.args
         self.print_action("drives a", something)
 
     @zouqi.command
@@ -56,6 +57,10 @@ class FancyDriver(Driver):
 
 
 class SuperFancyDriver(FancyDriver):
+    # If there is a placeholder called args,
+    # it will be assigned as parser.parse_args() after parsing.
+    args: Optional[Namespace] = None
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -63,7 +68,8 @@ class SuperFancyDriver(FancyDriver):
     def drive(self, something: str, title: str = "super fancy driver", **kwargs):
         # something: str overrides something: PrettifiedString
         # title = "super fancy driver" overrides title = "fancy driver"
-        super().drive(something, title=title, **kwargs)
+        assert self.args.something == something
+        super().drive(self.args.something, title=title, **kwargs)
 
 
 def test_runner_1(capsys):
