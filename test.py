@@ -1,3 +1,6 @@
+import sys
+from unittest.mock import patch
+
 import zouqi
 from zouqi.typing import Ignored, Custom
 
@@ -63,8 +66,36 @@ class SuperFancyDriver(FancyDriver):
         super().drive(something, title=title, **kwargs)
 
 
-if __name__ == "__main__":
-    print("======= Calling in the script ========")
-    SuperFancyDriver("John").drive_wash("car")
-    print("======= Calling from the CLI ========")
-    zouqi.start(SuperFancyDriver)
+def test_runner_1(capsys):
+    argv = [__name__, "drive", "John", "car"]
+    with patch.object(sys, "argv", argv):
+        zouqi.start(Driver)
+    captured = capsys.readouterr()
+    assert captured[0] == "John drives a car\n"
+
+
+def test_fancy_runner_1(capsys):
+    argv = [__name__, "drive", "John", "car"]
+    with patch.object(sys, "argv", argv):
+        zouqi.start(FancyDriver)
+    captured = capsys.readouterr()
+    assert captured[0] == "John is a fancy driver\nJohn drives a pretty car\n"
+
+
+def test_super_fancy_runner_1(capsys):
+    argv = [__name__, "drive", "John", "car"]
+    with patch.object(sys, "argv", argv):
+        zouqi.start(SuperFancyDriver)
+    captured = capsys.readouterr()
+    assert captured[0] == "John is a super fancy driver\nJohn drives a car\n"
+
+
+def test_super_fancy_runner_2(capsys):
+    argv = [__name__, "drive_wash", "John", "--something", "car"]
+    with patch.object(sys, "argv", argv):
+        zouqi.start(SuperFancyDriver)
+    captured = capsys.readouterr()
+    assert (
+        captured[0]
+        == "John is a super fancy driver\nJohn drives a car\nJohn washes a car, good.\n"
+    )

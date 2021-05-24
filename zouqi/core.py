@@ -2,7 +2,8 @@ import inspect
 import argparse
 from functools import partial
 
-from .parsing import ignored, flag, custom
+from .parsing import get_parser, get_args, get_origin
+from .typing import Ignored, Flag, Custom
 from .utils import print_args
 
 
@@ -105,7 +106,7 @@ def add_arguments_from_function_signature(parser, f):
         if p.name in existed:
             raise TypeError(f"{p.name} conflicts with exsiting argument.")
 
-        if p.annotation is ignored:
+        if p.annotation is Ignored:
             if p.default is empty:
                 raise TypeError(
                     f"An argument {p.name} cannot be ignored, "
@@ -114,7 +115,7 @@ def add_arguments_from_function_signature(parser, f):
             else:
                 continue
 
-        if p.default is not empty or p.annotation is flag:
+        if p.default is not empty or p.annotation is Flag:
             name = normalize_option_name(f"--{p.name}")
         else:
             name = p.name
@@ -123,13 +124,16 @@ def add_arguments_from_function_signature(parser, f):
 
         kwargs = dict(default=default)
 
-        if p.annotation is flag:
+        if p.annotation is Flag:
             default = False if default is None else default
             kwargs.update(dict(default=default, action="store_true"))
-        elif type(p.annotation) is custom:
-            kwargs.update(**p.annotation)
+        elif get_origin(p.annotation) is Custom:
+            payload = get_args(p.annotation)[1]
+            if "type" not in payload:
+                payload["type"] = get_parser(p.annotation)
+            kwargs.update(payload)
         elif p.annotation is not empty:
-            kwargs.update(dict(type=p.annotation))
+            kwargs["type"] = get_parser(p.annotation)
 
         parser.add_argument(name, **kwargs)
 

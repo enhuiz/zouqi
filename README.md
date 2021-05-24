@@ -2,11 +2,6 @@
 
 Zouqi (『走起』 in Chinese) is a CLI starter similar to [python-fire]. It is purely built on argparse.
 
-## Why not [python-fire]?
-
--   Fire cannot be used to share options between commands easily.
--   Fire treat all member functions as its command, which is not desirable in many situations.
-
 ## Installation
 
 ```plain
@@ -19,65 +14,75 @@ pip install zouqi
 
 ```python
 import zouqi
-from zouqi.parsing import ignored
+from zouqi.typing import Ignored, Custom
 
 
-def prettify(something):
-    return f"pretty {something}"
+def prettify(s):
+    return f"pretty {s}"
 
 
-class Runner:
-    def __init__(self, who: str):
-        self.who = who
+PrettifiedString = Custom[str, dict(type=prettify)]
 
-    # (This is not a command.)
-    def show(self, action, something):
-        print(self.who, action, something)
 
-    # Decorate the command with the zouqi.command decorator.
+class Driver:
+    def __init__(self, name: str):
+        self.name = name
+
+    # not a command.
+    def print_action(self, action, something):
+        print(self.name, action, something)
+
+    # decorate the cli command with the zouqi.command decorator.
     @zouqi.command
     def drive(self, something):
-        # Equivalent to: parser.add_argument('something').
+        # equivalent to: parser.add_argument('something').
         # the parsed args will be stored in self.drive.args instead of self.args
-        self.show("drives a", something)
+        self.print_action("drives a", something)
 
     @zouqi.command
-    def wash(self, something, hidden_option: ignored = ""):
-        # hidden option will be ignored during parsing but still passable by another function
-        self.show("washes a", something + hidden_option)
+    def wash(self, something, hidden_option: Ignored = ""):
+        # hidden option will be ignored in cli but still visible in no-cli callings
+        self.print_action("washes a", something + hidden_option)
 
     @zouqi.command
-    def drive_and_wash(self, something: prettify = "car"):
-        # Equivalent to: parser.add_argument('--something', type=prettify, default='car').
-        # Type hint is used as argument parser (a little bit abuse of type hint here).
+    def drive_wash(self, something: str = "car"):
+        # equivalent to: parser.add_argument('--something', type=prettify, default='car').
         self.drive(something)
         self.wash(something, ", good.")
 
 
-class FancyRunner(Runner):
+class FancyDriver(Driver):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def drive(self, title, *args, **kwargs):
+    @zouqi.command
+    def drive(self, something: PrettifiedString, title: str = "fancy driver", **kwargs):
         # other args are automatically inherited from its parent class
-        print(self.who, "is a", title)
-        super().drive(*args, **kwargs)
+        # while something: PrettifiedString overrides something: str
+        print(self.name, "is a", title)
+        super().drive(something, **kwargs)
+
+    # same as base class, but not a command, cannot be called.
+    def wash(self, *args, **kwargs):
+        super().wash(*args, **kwargs)
 
 
-class SuperFancyRunner(FancyRunner):
+class SuperFancyDriver(FancyDriver):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
     @zouqi.command(inherit=True)
-    def drive(self, *args, title: str = "super fancy driver", **kwargs):
-        super().drive(title, *args, **kwargs)
+    def drive(self, something: str, title: str = "super fancy driver", **kwargs):
+        # something: str overrides something: PrettifiedString
+        # title = "super fancy driver" overrides title = "fancy driver"
+        super().drive(something, title=title, **kwargs)
 
 
 if __name__ == "__main__":
     print("======= Calling in the script ========")
-    SuperFancyRunner("John").drive_and_wash("car")
+    SuperFancyDriver("John").drive_wash("car")
     print("======= Calling from the CLI ========")
-    zouqi.start(SuperFancyRunner)
+    zouqi.start(SuperFancyDriver)
 ```
 
 ### Runs
@@ -89,7 +94,7 @@ John is a super fancy driver
 John drives a car
 John washes a car, good.
 ======= Calling from the CLI ========
-usage: example.py [-h] [--print-args] {drive,drive_and_wash,wash} who
+usage: example.py [-h] [--print-args] {drive,drive_wash,wash} who
 example.py: error: the following arguments are required: command, who
 ```
 
@@ -105,23 +110,21 @@ John drives a car
 ```
 
 ```plain
-$ python3 example.py drive_and_wash John --something truck --print-args
+$ python3 example.py drive_wash John --something truck --print-args
 ======= Calling in the script ========
 John is a super fancy driver
 John drives a car
 John washes a car, good.
 ======= Calling from the CLI ========
-┌─────────────────────────┐
-│        Arguments        │
-├─────────────────────────┤
-│command: drive_and_wash  │
-│print_args: True         │
-│something: pretty truck  │
-│who: John                │
-└─────────────────────────┘
+┌─────────────────────┐
+│      Arguments      │
+├─────────────────────┤
+│command: drive_wash  │
+│name: John           │
+│print_args: True     │
+│something: truck     │
+└─────────────────────┘
 John is a super fancy driver
-John drives a pretty truck
-John washes a pretty truck, good.
+John drives a truck
+John washes a truck, good.
 ```
-
-[python-fire]: https://github.com/google/python-fire
