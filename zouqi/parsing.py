@@ -19,20 +19,29 @@ def none_parser(s):
 
 
 def get_parser(t):
+    parser = None
+
     if t is bool:
-        return bool_parser
+        parser = bool_parser
     if t is type(None):
-        return none_parser
+        parser = none_parser
 
     origin = get_origin(t)
     if origin is None:
-        return t
+        parser = t
     elif origin is Annotated:
-        return get_parser(get_args(t)[0])
+        data = get_annotated_data(t)
+        if "type" in data:
+            parser = data["type"]
+        else:
+            parser = get_parser(get_args(t)[0])
     elif origin is Union:
-        return union_parsers(*map(get_parser, get_args(t)))
+        parser = union_parsers(*map(get_parser, get_args(t)))
 
-    raise NotImplementedError(f"Parser for {t} is not implemented.")
+    if parser is None:
+        raise NotImplementedError(f"Parser for {t} is not implemented.")
+
+    return parser
 
 
 def union_parsers(*parsers):

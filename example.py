@@ -9,6 +9,7 @@ def prettify(s):
     return f"pretty {s}"
 
 
+# equivalent to: parser.add_argument(..., type=prettify).
 PrettifiedString = Custom[str, dict(type=prettify)]
 
 
