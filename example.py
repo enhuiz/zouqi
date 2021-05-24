@@ -31,14 +31,15 @@ class Driver:
 
     # decorate the cli command with the zouqi.command decorator.
     @zouqi.command
-    def drive(self, something):
+    def drive(self, something, maybe_ignored: str = ""):
         # equivalent to: parser.add_argument('something').
+        del maybe_ignored
         self.print_action("drives a", something)
 
     @zouqi.command
-    def wash(self, something, hidden_option: Ignored = ""):
+    def wash(self, something, ignored: Ignored = ""):
         # hidden option will be ignored in cli but still visible in no-cli callings
-        self.print_action("washes a", something + hidden_option)
+        self.print_action("washes a", something + ignored)
 
     @zouqi.command
     def drive_wash(self, something: str = "car"):
@@ -48,10 +49,10 @@ class Driver:
 
 
 class FancyDriver(Driver):
-    def __init__(self, *args, title: str = "fancy driver"):
+    def __init__(self, *args, title: str = "fancy driver", **kwargs):
         # <title = "fancy driver"> overrides <title = "driver">
         # as <flag> is not passed, it will be ignored.
-        super().__init__(*args, title=title)
+        super().__init__(*args, title=title, **kwargs)
 
     @zouqi.command
     def drive(self, something: PrettifiedString):

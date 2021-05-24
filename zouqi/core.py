@@ -3,8 +3,12 @@ import argparse
 from functools import partial
 
 from .parsing import get_parser
-from .typing import Ignored, Flag, Annotated, get_annotated_data
+from .typing import Ignored, Flag, get_annotated_data
 from .utils import print_args, delete_first, find_first, find_first_index
+
+
+def change_kind(p, kind):
+    return inspect.Parameter(p.name, kind, default=p.default, annotation=p.annotation)
 
 
 def merge_params(base_params, derived_params):
@@ -25,16 +29,24 @@ def merge_params(base_params, derived_params):
 
         # inherit **kwargs
         for p in base_params[:stop]:
-            param_dict[p.name] = p
+            param_dict[p.name] = change_kind(p, p.POSITIONAL_ONLY)
 
     # handle **kwargs
     if any(p.kind == p.VAR_KEYWORD for p in derived_params):
         # remove **kwargs
         delete_first(derived_params, lambda p: p.kind is p.VAR_KEYWORD)
 
+        # find the first keyword only parameters
+        p = find_first(derived_params, lambda p: p.kind is p.KEYWORD_ONLY)
+
+        if p is None:
+            start = 0
+        else:
+            start = find_first_index(base_params, lambda b: b.name == p.name) + 1
+
         # inherit **kwargs
-        for p in base_params:
-            param_dict[p.name] = p
+        for p in base_params[start:]:
+            param_dict[p.name] = change_kind(p, p.KEYWORD_ONLY)
 
     # update params using derived
     for p in derived_params:
@@ -105,20 +117,7 @@ def add_arguments_from_params(parser, params):
         if p.annotation is Flag:
             del data["type"]
 
-        allowed = [
-            "action",
-            "nargs",
-            "const",
-            "default",
-            "type",
-            "choices",
-            "required",
-            "help",
-            "metavar",
-            "dest",
-        ]
-
-        parser.add_argument(name, **{k: data[k] for k in data if k in allowed})
+        parser.add_argument(name, **data)
 
 
 def command(f=None, inherit=True):

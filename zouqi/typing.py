@@ -1,4 +1,4 @@
-from typing import Any, Annotated, get_origin, get_args
+from typing import *
 
 
 def get_annotated_data(t):
