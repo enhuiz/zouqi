@@ -171,3 +171,5 @@ def start(cls, inherit=True):
     command_func = getattr(instance, args.command)
     command_data = command_func._zouqi
     feed(command_func, args, command_data["params"])
+
+    return instance

@@ -19,22 +19,21 @@ def none_parser(s):
 
 
 def get_parser(t):
+    origin = get_origin(t)
+
     parser = None
 
+    # basic types
     if t is bool:
         parser = bool_parser
-    if t is type(None):
+    elif t is type(None):
         parser = none_parser
-
-    origin = get_origin(t)
-    if origin is None:
+    elif origin is None:
         parser = t
+    # composite types
     elif origin is Annotated:
         data = get_annotated_data(t)
-        if "type" in data:
-            parser = data["type"]
-        else:
-            parser = get_parser(get_args(t)[0])
+        parser = data.get("type", get_parser(get_args(t)[0]))
     elif origin is Union:
         parser = union_parsers(*map(get_parser, get_args(t)))
 

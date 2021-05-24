@@ -34,9 +34,9 @@ class Driver:
 
     # decorate the cli command with the zouqi.command decorator.
     @zouqi.command
-    def drive(self, something, maybe_ignored: str = ""):
+    def drive(self, something, maybe_ignored: bool = False):
         # equivalent to: parser.add_argument('something').
-        del maybe_ignored
+        self.maybe_ignored = maybe_ignored
         self.print_action("drives a", something)
 
     @zouqi.command
@@ -93,3 +93,15 @@ def test_fancy_runner_2(capsys):
         captured[0]
         == "John is a fancy driver\nJohn drives a car\nJohn is a fancy driver\nJohn washes a car, good\n"
     )
+
+
+def test_bool():
+    argv = [__name__, "drive", "John", "car", "--maybe-ignored", "false"]
+    with patch.object(sys, "argv", argv):
+        driver = zouqi.start(Driver)
+    assert not driver.maybe_ignored
+
+    argv = [__name__, "drive", "John", "car", "--maybe-ignored", "true"]
+    with patch.object(sys, "argv", argv):
+        driver = zouqi.start(Driver)
+    assert driver.maybe_ignored
