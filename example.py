@@ -1,8 +1,8 @@
+import zouqi
+from zouqi.typing import Ignored, Custom, Flag
+
 from argparse import Namespace
 from typing import Optional
-
-import zouqi
-from zouqi.typing import Ignored, Custom
 
 
 def prettify(s):
@@ -13,11 +13,20 @@ PrettifiedString = Custom[str, dict(type=prettify)]
 
 
 class Driver:
-    def __init__(self, name: str):
+    # If there is a placeholder called args,
+    # it will be assigned as parser.parse_args() after parsing.
+    args: Optional[Namespace] = None
+
+    def __init__(self, name: str, title: str = "driver", flag: Flag = False):
+        # name will be treated as parser.add_argument("name")
+        # title will be treated as parser.add_argument("title", default="")
         self.name = name
+        self.title = title
+        self.flag = flag
 
     # not a command.
     def print_action(self, action, something):
+        print(self.name, "is a", self.title)
         print(self.name, action, something)
 
     # decorate the cli command with the zouqi.command decorator.
@@ -35,43 +44,28 @@ class Driver:
     def drive_wash(self, something: str = "car"):
         # equivalent to: parser.add_argument('--something', type=prettify, default='car').
         self.drive(something)
-        self.wash(something, ", good.")
+        self.wash(something, ", good")
 
 
 class FancyDriver(Driver):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, title: str = "fancy driver"):
+        # <title = "fancy driver"> overrides <title = "driver">
+        # as <flag> is not passed, it will be ignored.
+        super().__init__(*args, title=title)
 
     @zouqi.command
-    def drive(self, something: PrettifiedString, title: str = "fancy driver", **kwargs):
-        # other args are automatically inherited from its parent class
-        # while something: PrettifiedString overrides something: str
-        print(self.name, "is a", title)
-        super().drive(something, **kwargs)
+    def drive(self, something: PrettifiedString):
+        # <something: PrettifiedString> overrides <something: str>
+        # option overrides argument, which requires --something
+        super().drive(something)
 
     # same as base class, but not a command, cannot be called.
     def wash(self, *args, **kwargs):
         super().wash(*args, **kwargs)
 
 
-class SuperFancyDriver(FancyDriver):
-    # If there is a placeholder called args,
-    # it will be assigned as parser.parse_args() after parsing.
-    args: Optional[Namespace] = None
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    @zouqi.command(inherit=True)
-    def drive(self, something: str, title: str = "super fancy driver", **kwargs):
-        # something: str overrides something: PrettifiedString
-        # title = "super fancy driver" overrides title = "fancy driver"
-        assert self.args.something == something
-        super().drive(self.args.something, title=title, **kwargs)
-
-
 if __name__ == "__main__":
     print("======= Calling in the script ========")
-    SuperFancyDriver("John").drive_wash("car")
+    FancyDriver("John").drive_wash("car")
     print("======= Calling from the CLI ========")
-    zouqi.start(SuperFancyDriver)
+    zouqi.start(FancyDriver)

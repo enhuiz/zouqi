@@ -1,3 +1,19 @@
+def find_first(l, predicate, default=None):
+    return next((x for x in l if predicate(x)), default)
+
+
+def find_first_index(l, predicate, default=None):
+    if default is None:
+        default = len(l)
+    return next((i for i, x in enumerate(l) if predicate(x)), default)
+
+
+def delete_first(l, predicate):
+    i = find_first_index(l, predicate)
+    if i < len(l):
+        del l[i]
+
+
 def message_box(title, sections, aligner="<"):
     lines = [title] + [s for section in sections for s in section.splitlines()]
     widest = max(map(len, lines))

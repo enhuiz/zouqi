@@ -4,90 +4,65 @@ from functools import partial
 
 from .parsing import get_parser, get_args, get_origin
 from .typing import Ignored, Flag, Custom
-from .utils import print_args
+from .utils import print_args, delete_first, find_first, find_first_index
 
 
-def parse_params(f, predicate=lambda _: True):
-    params = inspect.signature(f).parameters.values()
-    params = [p for p in params if predicate(p)]
-    return params
+def merge_params(base_params, derived_params):
+    param_dict = {}
+
+    # handle *args
+    if any(p.kind is p.VAR_POSITIONAL for p in derived_params):
+        # remove *args
+        delete_first(derived_params, lambda p: p.kind is p.VAR_POSITIONAL)
+
+        # find the first keyword only parameters
+        p = find_first(derived_params, lambda p: p.kind is p.KEYWORD_ONLY)
+
+        if p is None:
+            stop = len(base_params)
+        else:
+            stop = find_first_index(base_params, lambda b: b.name == p.name)
+
+        # inherit **kwargs
+        for p in base_params[:stop]:
+            param_dict[p.name] = p
+
+    # handle **kwargs
+    if any(p.kind == p.VAR_KEYWORD for p in derived_params):
+        # remove **kwargs
+        delete_first(derived_params, lambda p: p.kind is p.VAR_KEYWORD)
+
+        # inherit **kwargs
+        for p in base_params:
+            param_dict[p.name] = p
+
+    # update params using derived
+    for p in derived_params:
+        param_dict[p.name] = p
+
+    # from Python 3.7, dict is now OrderedDict
+    return list(param_dict.values())
 
 
-def inherit_signature(f, bases):
+def inspect_params(cls, name, inherit=True):
     """
-    inherit signature
+    Recursively parse function params.
+    Function parameters of the derived class overrides the base class ones.
     """
-    if isinstance(bases, type):
-        bases = [bases]
+    if cls is None:
+        return []
 
-    POSITIONAL_ONLY = inspect.Parameter.POSITIONAL_ONLY
-    POSITIONAL_OR_KEYWORD = inspect.Parameter.POSITIONAL_OR_KEYWORD
-    VAR_POSITIONAL = inspect.Parameter.VAR_POSITIONAL
-    KEYWORD_ONLY = inspect.Parameter.KEYWORD_ONLY
-    VAR_KEYWORD = inspect.Parameter.VAR_KEYWORD
+    f = getattr(cls, name, None)
+    if f is None:
+        return []
 
-    def merge(fps, gps):
-        if any([p.kind in [VAR_KEYWORD, VAR_POSITIONAL] for p in gps]):
-            raise TypeError("Parent class contains uncertain parameters.")
+    params = list(inspect.signature(f).parameters.values())
 
-        indices = {}
-        params = []
-
-        def add(p):
-            indices[p.name] = len(params)
-            params.append(p)
-
-        i, j = 0, 0
-        while i < len(fps):
-            fp = fps[i]
-            if fp.kind is VAR_POSITIONAL:
-                # replace the var positional with parent's PO and P/W
-                while j < len(gps):
-                    gp = gps[j]
-                    if gp.name not in indices and gp.kind in [
-                        POSITIONAL_ONLY,
-                        POSITIONAL_OR_KEYWORD,
-                    ]:
-                        add(gp)
-                    j += 1
-            elif fp.kind is VAR_KEYWORD:
-                # replace the var positional with parent's PO and P/W
-                while j < len(gps):
-                    gp = gps[j]
-                    if gp.name not in indices and gp.kind in [
-                        POSITIONAL_OR_KEYWORD,
-                        KEYWORD_ONLY,
-                    ]:
-                        add(gp)
-                    j += 1
-            elif fp.name in indices:
-                # override
-                del params[indices[fp.name]]
-                add(fp)
-            else:
-                add(fp)
-
-            i += 1
-
-        return params
-
-    def recursively_inherit_signature(f, cls):
-        if cls is object:
-            return
-
-        g = getattr(cls, f.__name__, None)
-
-        if g is not None:
-            if cls.__bases__:
-                for base in cls.__bases__:
-                    recursively_inherit_signature(g, base)
-            params = merge(parse_params(f), parse_params(g))
-            f.__signature__ = inspect.Signature(params)
-
+    bases = cls.__bases__ if inherit else []
     for base in bases:
-        recursively_inherit_signature(f, base)
+        params = merge_params(inspect_params(base, name), params)
 
-    return f
+    return params
 
 
 def normalize_option_name(name):
@@ -97,21 +72,21 @@ def normalize_option_name(name):
     return name
 
 
-def add_arguments_from_function_signature(parser, f):
+def add_arguments_from_params(parser, params):
     empty = inspect.Parameter.empty
-    params = parse_params(f, lambda p: p.name != "self")
     existed = {a.dest for a in parser._actions}
 
     for p in params:
+        if p.name == "self":
+            continue
+
         if p.name in existed:
             raise TypeError(f"{p.name} conflicts with exsiting argument.")
 
         if p.annotation is Ignored:
             if p.default is empty:
-                raise TypeError(
-                    f"An argument {p.name} cannot be ignored, "
-                    "please set an default value to make it an option."
-                )
+                msg = f"Argument {p.name} is not ignorable as it is not an option."
+                raise TypeError(msg)
             else:
                 continue
 
@@ -120,68 +95,72 @@ def add_arguments_from_function_signature(parser, f):
         else:
             name = p.name
 
-        default = None if p.default is empty else p.default
-
-        kwargs = dict(default=default)
+        kwargs = dict(
+            default=None if p.default is empty else p.default,
+            type=None if p.annotation is empty else get_parser(p.annotation),
+        )
 
         if p.annotation is Flag:
-            default = False if default is None else default
-            kwargs.update(dict(default=default, action="store_true"))
+            if kwargs["default"] is None:
+                kwargs["default"] = False
+            if kwargs["default"]:
+                raise TypeError("The default value of a flag cannot be true.")
+            kwargs["action"] = "store_true"
+            del kwargs["type"]
         elif get_origin(p.annotation) is Custom:
-            payload = get_args(p.annotation)[1]
-            if "type" not in payload:
-                payload["type"] = get_parser(p.annotation)
-            kwargs.update(payload)
-        elif p.annotation is not empty:
-            kwargs["type"] = get_parser(p.annotation)
+            kwargs.update(get_args(p.annotation)[1])
 
         parser.add_argument(name, **kwargs)
 
 
 def command(f=None, inherit=True):
     if f is not None:
-        f._command = dict(inherit=inherit)
+        f._zouqi = dict(inherit=inherit)
         return f
     return partial(command, inherit=inherit)
 
 
-def start(cls):
-    # extract possible commands
-    command_names = []
-    for name, func in inspect.getmembers(cls, inspect.isfunction):
-        if hasattr(func, "_command"):
-            command_names.append(name)
-            # inherit the command
-            if func._command["inherit"]:
-                inherit_signature(func, cls.__bases__)
+def iter_commands(cls):
+    for _, func in inspect.getmembers(cls, inspect.isfunction):
+        if hasattr(func, "_zouqi"):
+            yield func
 
-    # inherit __init__
-    inherit_signature(cls.__init__, cls.__bases__)
 
-    # initalize parser for the cls
+def feed(func, args, params: list[inspect.Parameter]):
+    read = lambda p: getattr(args, p.name)
+    exists = lambda p: hasattr(args, p.name)
+    positional = lambda p: p.kind in [p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD]
+    return func(
+        *[read(p) for p in params if exists(p) and positional(p)],
+        **{p.name: read(p) for p in params if exists(p) and not positional(p)},
+    )
+
+
+def start(cls, inherit=True):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers = {name: subparsers.add_parser(name) for name in command_names}
 
-    for subparser in subparsers.values():
-        add_arguments_from_function_signature(subparser, cls.__init__)
+    init_params = inspect_params(cls, "__init__", inherit)
+    for func in iter_commands(cls):
+        name = func.__name__
+        data = func._zouqi
+        data["params"] = inspect_params(cls, name, data["inherit"])
+        subparser = subparsers.add_parser(func.__name__)
+        add_arguments_from_params(subparser, init_params)
         subparser.add_argument("--print-args", action="store_true")
-
-    for name in command_names:
-        add_arguments_from_function_signature(subparsers[name], getattr(cls, name))
+        add_arguments_from_params(subparser, data["params"])
 
     args = parser.parse_args()
 
     if args.print_args:
         print_args(args)
 
-    params = {p.name for p in parse_params(cls.__init__)}
-    instance = cls(**{key: value for key, value in vars(args).items() if key in params})
+    instance = feed(cls, args, init_params)
 
     # if there is an placeholder, then set args to the instance
     if hasattr(instance, "args") and instance.args is None:
         instance.args = args
 
     command_func = getattr(instance, args.command)
-    params = {p.name for p in parse_params(command_func)}
-    command_func(**{key: value for key, value in vars(args).items() if key in params})
+    command_data = command_func._zouqi
+    feed(command_func, args, command_data["params"])
