@@ -33,7 +33,8 @@ def get_parser(t):
     # composite types
     elif origin is Annotated:
         data = get_annotated_data(t)
-        parser = data.get("type", get_parser(get_args(t)[0]))
+        parser = data.get("type", None)
+        parser = parser or get_parser(get_args(t)[0])
     elif origin is Union:
         parser = union_parsers(*map(get_parser, get_args(t)))
 
