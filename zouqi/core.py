@@ -1,6 +1,7 @@
 import inspect
 import argparse
 from functools import partial
+from operator import attrgetter
 
 from .parsing import get_parser
 from .typing import Ignored, Flag, get_annotated_data
@@ -118,24 +119,24 @@ def add_arguments_from_params(parser, params):
 
 def command(f=None, inherit=True):
     if f is not None:
-        f._zouqi = dict(inherit=inherit)
+        f._zouqi_data = dict(inherit=inherit)
         return f
     return partial(command, inherit=inherit)
 
 
 def iterate_command_functions(cls):
     for _, func in inspect.getmembers(cls, inspect.isfunction):
-        if hasattr(func, "_zouqi"):
+        if hasattr(func, "_zouqi_data"):
             yield func
 
 
-def feed(func, args, params: list[inspect.Parameter]):
+def call(func, args, params: list[inspect.Parameter]):
     read = lambda p: getattr(args, p.name)
     exists = lambda p: hasattr(args, p.name)
-    positional = lambda p: p.kind in [p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD]
+    is_pos = lambda p: p.kind in [p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD]
     return func(
-        *[read(p) for p in params if exists(p) and positional(p)],
-        **{p.name: read(p) for p in params if exists(p) and not positional(p)},
+        *[read(p) for p in params if exists(p) and is_pos(p)],
+        **{p.name: read(p) for p in params if exists(p) and not is_pos(p)},
     )
 
 
@@ -145,12 +146,13 @@ def start(cls, inherit=True):
 
     # global params (i.e. params of __init__)
     params = inspect_params(cls, "__init__", inherit)
-    for func in iterate_command_functions(cls):
-        name = func.__name__
-        command_data = func._zouqi
+    for name, command_data in map(
+        attrgetter("__name__", "_zouqi_data"),
+        iterate_command_functions(cls),
+    ):
         # local params (i.e. params of command function)
         command_data["params"] = inspect_params(cls, name, command_data["inherit"])
-        subparser = subparsers.add_parser(func.__name__)
+        subparser = subparsers.add_parser(name)
         command_param_names = {p.name for p in command_data["params"]}
         filtered_params = filter(lambda p: p.name not in command_param_names, params)
         add_arguments_from_params(subparser, filtered_params)
@@ -162,14 +164,14 @@ def start(cls, inherit=True):
     if args.print_args:
         print_args(args)
 
-    instance = feed(cls, args, params)
+    instance = call(cls, args, params)
 
     # if there is an placeholder, then set args to the instance
     if hasattr(instance, "args") and instance.args is None:
         instance.args = args
 
     command_func = getattr(instance, args.command)
-    command_data = command_func._zouqi
-    feed(command_func, args, command_data["params"])
+    command_data = command_func._zouqi_data
+    call(command_func, args, command_data["params"])
 
     return instance
