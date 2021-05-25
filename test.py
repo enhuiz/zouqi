@@ -2,7 +2,7 @@ import sys
 from unittest.mock import patch
 
 import zouqi
-from zouqi.typing import Ignored, Custom, Flag
+from zouqi.typing import Ignored, Custom, Flag, Parser
 
 from argparse import Namespace
 from typing import Optional
@@ -12,7 +12,7 @@ def prettify(s):
     return f"pretty {s}"
 
 
-PrettifiedString = Custom[str, dict(type=prettify)]
+PrettifiedString = Custom[str, Parser(type=prettify)]
 
 
 class Driver:

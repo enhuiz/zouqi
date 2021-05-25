@@ -1,14 +1,20 @@
 from typing import *
 
 
+class Parser(dict):
+    pass
+
+
 def get_annotated_data(t):
-    data = {}
+    ret = {}
     origin = get_origin(t)
     if origin is Annotated:
-        data.update(get_args(t)[1])
-    return data
+        data = get_args(t)[1]
+        if isinstance(data, Parser):
+            ret = data
+    return ret
 
 
-Flag = Annotated[bool, dict(action="store_true", default=False)]
-Ignored = Annotated[Any, dict(ignored=True)]
+Flag = Annotated[bool, Parser(action="store_true", default=False)]
+Ignored = Annotated[Any, Parser(ignored=True)]
 Custom = Annotated
