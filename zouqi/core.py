@@ -86,14 +86,10 @@ def normalize_option_name(name):
 
 def add_arguments_from_params(parser, params):
     empty = inspect.Parameter.empty
-    existed = {a.dest for a in parser._actions}
 
     for p in params:
         if p.name == "self":
             continue
-
-        if p.name in existed:
-            raise TypeError(f"{p.name} conflicts with exsiting argument.")
 
         if p.annotation is Ignored:
             if p.default is empty:
@@ -107,17 +103,17 @@ def add_arguments_from_params(parser, params):
         else:
             name = p.name
 
-        data = {
+        kwargs = {
             "default": None if p.default is empty else p.default,
             "type": None if p.annotation is empty else get_parser(p.annotation),
         }
 
-        data.update(get_annotated_data(p.annotation))
+        kwargs.update(get_annotated_data(p.annotation))
 
         if p.annotation is Flag:
-            del data["type"]
+            del kwargs["type"]
 
-        parser.add_argument(name, **data)
+        parser.add_argument(name, **kwargs)
 
 
 def command(f=None, inherit=True):
@@ -127,7 +123,7 @@ def command(f=None, inherit=True):
     return partial(command, inherit=inherit)
 
 
-def iter_commands(cls):
+def iterate_command_functions(cls):
     for _, func in inspect.getmembers(cls, inspect.isfunction):
         if hasattr(func, "_zouqi"):
             yield func
@@ -147,22 +143,26 @@ def start(cls, inherit=True):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    init_params = inspect_params(cls, "__init__", inherit)
-    for func in iter_commands(cls):
+    # global params (i.e. params of __init__)
+    params = inspect_params(cls, "__init__", inherit)
+    for func in iterate_command_functions(cls):
         name = func.__name__
-        data = func._zouqi
-        data["params"] = inspect_params(cls, name, data["inherit"])
+        command_data = func._zouqi
+        # local params (i.e. params of command function)
+        command_data["params"] = inspect_params(cls, name, command_data["inherit"])
         subparser = subparsers.add_parser(func.__name__)
-        add_arguments_from_params(subparser, init_params)
+        command_param_names = {p.name for p in command_data["params"]}
+        filtered_params = filter(lambda p: p.name not in command_param_names, params)
+        add_arguments_from_params(subparser, filtered_params)
         subparser.add_argument("--print-args", action="store_true")
-        add_arguments_from_params(subparser, data["params"])
+        add_arguments_from_params(subparser, command_data["params"])
 
     args = parser.parse_args()
 
     if args.print_args:
         print_args(args)
 
-    instance = feed(cls, args, init_params)
+    instance = feed(cls, args, params)
 
     # if there is an placeholder, then set args to the instance
     if hasattr(instance, "args") and instance.args is None:

@@ -12,6 +12,7 @@ def prettify(s):
     return f"pretty {s}"
 
 
+# equivalent to: parser.add_argument(..., type=prettify).
 PrettifiedString = Custom[str, Parser(type=prettify)]
 
 
@@ -20,7 +21,7 @@ class Driver:
     # it will be assigned as parser.parse_args() after parsing.
     args: Optional[Namespace] = None
 
-    def __init__(self, name: str, title: str = "driver", flag: Flag = False):
+    def __init__(self, name: str, title: str = "guy", flag: Flag = False):
         # name will be treated as parser.add_argument("name")
         # title will be treated as parser.add_argument("title", default="")
         self.name = name
@@ -34,7 +35,7 @@ class Driver:
 
     # decorate the cli command with the zouqi.command decorator.
     @zouqi.command
-    def drive(self, something, maybe_ignored: bool = False):
+    def drive(self, something, maybe_ignored: bool = False, title: str = "driver"):
         # equivalent to: parser.add_argument('something').
         self.maybe_ignored = maybe_ignored
         self.print_action("drives a", something)
@@ -52,13 +53,13 @@ class Driver:
 
 
 class FancyDriver(Driver):
-    def __init__(self, *args, title: str = "fancy driver", **kwargs):
+    def __init__(self, *args, title: str = "fancy guy", **kwargs):
         # <title = "fancy driver"> overrides <title = "driver">
         # as <flag> is not passed, it will be ignored.
         super().__init__(*args, title=title, **kwargs)
 
     @zouqi.command
-    def drive(self, something: PrettifiedString):
+    def drive(self, something: PrettifiedString, title: str = "fancy driver"):
         # <something: PrettifiedString> overrides <something: str>
         # option overrides argument, which requires --something
         super().drive(something)
@@ -91,7 +92,7 @@ def test_fancy_runner_2(capsys):
     captured = capsys.readouterr()
     assert (
         captured[0]
-        == "John is a fancy driver\nJohn drives a car\nJohn is a fancy driver\nJohn washes a car, good\n"
+        == "John is a fancy guy\nJohn drives a car\nJohn is a fancy guy\nJohn washes a car, good\n"
     )
 
 
