@@ -1,3 +1,6 @@
+import sys
+from unittest.mock import patch
+
 import zouqi
 from zouqi.typing import Ignored, Custom, Flag, Parser
 
@@ -66,8 +69,40 @@ class FancyDriver(Driver):
         super().wash(*args, **kwargs)
 
 
-if __name__ == "__main__":
-    print("======= Calling in the script ========")
-    FancyDriver("John").drive_wash("car")
-    print("======= Calling from the CLI ========")
-    zouqi.start(FancyDriver)
+def test_runner_1(capsys):
+    argv = [__name__, "drive", "John", "car"]
+    with patch.object(sys, "argv", argv):
+        zouqi.start(Driver)
+    captured = capsys.readouterr()
+    assert captured[0] == "John is a driver\nJohn drives a car\n"
+
+
+def test_fancy_runner_1(capsys):
+    argv = [__name__, "drive", "John", "car"]
+    with patch.object(sys, "argv", argv):
+        zouqi.start(FancyDriver)
+    captured = capsys.readouterr()
+    assert captured[0] == "John is a fancy driver\nJohn drives a pretty car\n"
+
+
+def test_fancy_runner_2(capsys):
+    argv = [__name__, "drive_wash", "John", "--something", "car"]
+    with patch.object(sys, "argv", argv):
+        zouqi.start(FancyDriver)
+    captured = capsys.readouterr()
+    assert (
+        captured[0]
+        == "John is a fancy guy\nJohn drives a car\nJohn is a fancy guy\nJohn washes a car, good\n"
+    )
+
+
+def test_bool():
+    argv = [__name__, "drive", "John", "car", "--maybe-ignored", "false"]
+    with patch.object(sys, "argv", argv):
+        driver = zouqi.start(Driver)
+    assert not driver.maybe_ignored
+
+    argv = [__name__, "drive", "John", "car", "--maybe-ignored", "true"]
+    with patch.object(sys, "argv", argv):
+        driver = zouqi.start(Driver)
+    assert driver.maybe_ignored
