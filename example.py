@@ -43,8 +43,10 @@ class Driver:
         self.print_action("washes a", something + ignored)
 
     @zouqi.command
-    def drive_wash(self, something: str = "car"):
+    def drive_wash(self, something: Optional[str] = "car"):
         # equivalent to: parser.add_argument('--something', type=prettify, default='car').
+        if something is None:
+            something = "nothing"
         self.drive(something)
         self.wash(something, ", good")
 

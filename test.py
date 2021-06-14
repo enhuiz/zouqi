@@ -46,8 +46,10 @@ class Driver:
         self.print_action("washes a", something + ignored)
 
     @zouqi.command
-    def drive_wash(self, something: str = "car"):
+    def drive_wash(self, something: Optional[str] = "car"):
         # equivalent to: parser.add_argument('--something', type=prettify, default='car').
+        if something is None:
+            something = "nothing"
         self.drive(something)
         self.wash(something, ", good")
 
@@ -106,3 +108,21 @@ def test_bool():
     with patch.object(sys, "argv", argv):
         driver = zouqi.start(Driver)
     assert driver.maybe_ignored
+
+
+def test_none(capsys):
+    def assertion(something, expected):
+        argv = [__name__, "drive_wash", "John", "--something", something]
+        with patch.object(sys, "argv", argv):
+            zouqi.start(FancyDriver)
+        captured = capsys.readouterr()
+        assert (
+            captured[0]
+            == f"John is a fancy guy\nJohn drives a {expected}\nJohn is a fancy guy\nJohn washes a {expected}, good\n"
+        )
+
+    assertion("none", "nothing")
+    assertion("null", "nothing")
+    assertion("None", "nothing")
+    assertion("NULL", "nothing")
+    assertion("NIL", "NIL")

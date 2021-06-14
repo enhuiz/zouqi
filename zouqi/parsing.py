@@ -1,4 +1,5 @@
 from typing import Union, Optional, get_args, get_origin
+from collections import defaultdict
 
 from .typing import *
 
@@ -36,7 +37,17 @@ def get_parser(t):
         parser = data.get("type", None)
         parser = parser or get_parser(get_args(t)[0])
     elif origin is Union:
-        parser = union_parsers(*map(get_parser, get_args(t)))
+        priority = defaultdict(lambda: 0, {type(None): 1})
+        parser = union_parsers(
+            *map(
+                get_parser,
+                sorted(
+                    get_args(t),
+                    key=lambda t: priority[t],
+                    reverse=True,
+                ),
+            )
+        )
 
     if parser is None:
         raise NotImplementedError(f"Parser for {t} is not implemented.")
