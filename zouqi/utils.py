@@ -77,8 +77,8 @@ def load_yaml(path, command):
 
 def to_val(x):
     if isinstance(x, (tuple, list)):
-        return " ".join(map(to_val, x))
-    return str(x)
+        return list(chain.from_iterable(map(to_val, x)))
+    return [str(x)]
 
 
 def to_key(k):
@@ -88,11 +88,13 @@ def to_key(k):
 def to_argv(k, v):
     argv = [to_key(k)]
     if v is not None:
-        argv.append(to_val(v))
+        argv.extend(to_val(v))
     return argv
 
 
-def yaml2argv(path, command):
+def yaml2argv(path, command, ignored):
     data = load_yaml(path, command)
+    for key in ignored:
+        del data[key]
     argv = chain.from_iterable(to_argv(k, v) for k, v in data.items())
     return list(argv)

@@ -159,22 +159,35 @@ def start(cls, inherit=True):
         filtered_params = filter(lambda p: p.name not in command_param_names, params)
         add_arguments_from_params(subparser, filtered_params)
         subparser.add_argument(
+            "--print-args",
+            action="store_true",
+            help="Print the parsed args in a message box.",
+        )
+        subparser.add_argument(
             "--config",
             type=Path,
             default=None,
-            help="a YAML configuration file that overrides the default values of args",
+            help="A YAML configuration file that overrides the default values of args.",
+            metavar="YAML",
         )
         subparser.add_argument(
-            "--print-args",
-            action="store_true",
-            help="print the parsed args in a message box",
+            "--config-ignored",
+            type=str,
+            nargs="*",
+            default=[],
+            help="A list of keys in the YAML configuration file that should be ignored.",
+            metavar="KEYS",
         )
         add_arguments_from_params(subparser, command_data["params"])
 
     args = parser.parse_args()
     if args.config:
         # priority: default < yaml config < sys.argv
-        argv = sys.argv[1:2] + yaml2argv(args.config, args.command) + sys.argv[2:]
+        argv = (
+            sys.argv[1:2]
+            + yaml2argv(args.config, args.command, args.config_ignored)
+            + sys.argv[2:]
+        )
         args = parser.parse_args(argv)
 
     if args.print_args:
