@@ -55,15 +55,29 @@ def yaml2argv(path, command):
         return f"--{k.replace('_', '-')}"
 
     def to_argv(k, v):
-        return [to_key(k), to_val(v)]
+        argv = [to_key(k)]
+        if v is not None:
+            argv.append(to_val(v))
+        return argv
 
     with open(path, "r") as f:
-        o = yaml.load(f, yaml.Loader)
+        o: dict = yaml.load(f, yaml.Loader) or {}
 
     if command in o:
         o.update(o[command])
         del o[command]
 
-    argv = list(chain.from_iterable(to_argv(k, v) for k, v in o.items()))
+    argv = []
+
+    # load the default (i.e. base) yaml of the current yaml
+    if "default" in o:
+        bases = o["default"]
+        if not isinstance(bases, list):
+            bases = [bases]
+        for base in bases:
+            argv.extend(yaml2argv(base, command))
+        del o["default"]
+
+    argv.extend(chain.from_iterable(to_argv(k, v) for k, v in o.items()))
 
     return argv

@@ -36,6 +36,7 @@ class Driver:
         # equivalent to: parser.add_argument('something').
         self.maybe_ignored = maybe_ignored
         self.print_action("drives a", something)
+        print("Flag is", self.flag)
 
     @zouqi.command
     def wash(self, something, ignored: Ignored = ""):

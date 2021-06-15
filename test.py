@@ -39,6 +39,7 @@ class Driver:
         # equivalent to: parser.add_argument('something').
         self.maybe_ignored = maybe_ignored
         self.print_action("drives a", something)
+        print("Flag is", self.flag)
 
     @zouqi.command
     def wash(self, something, ignored: Ignored = ""):
@@ -76,7 +77,7 @@ def test_runner_1(capsys):
     with patch.object(sys, "argv", argv):
         zouqi.start(Driver)
     captured = capsys.readouterr()
-    assert captured[0] == "John is a driver\nJohn drives a car\n"
+    assert captured[0] == "John is a driver\nJohn drives a car\nFlag is False\n"
 
 
 def test_fancy_runner_1(capsys):
@@ -84,7 +85,10 @@ def test_fancy_runner_1(capsys):
     with patch.object(sys, "argv", argv):
         zouqi.start(FancyDriver)
     captured = capsys.readouterr()
-    assert captured[0] == "John is a fancy driver\nJohn drives a pretty car\n"
+    assert (
+        captured[0]
+        == "John is a fancy driver\nJohn drives a pretty car\nFlag is False\n"
+    )
 
 
 def test_fancy_runner_2(capsys):
@@ -94,7 +98,7 @@ def test_fancy_runner_2(capsys):
     captured = capsys.readouterr()
     assert (
         captured[0]
-        == "John is a fancy guy\nJohn drives a car\nJohn is a fancy guy\nJohn washes a car, good\n"
+        == "John is a fancy guy\nJohn drives a car\nFlag is False\nJohn is a fancy guy\nJohn washes a car, good\n"
     )
 
 
@@ -118,7 +122,7 @@ def test_none(capsys):
         captured = capsys.readouterr()
         assert (
             captured[0]
-            == f"John is a fancy guy\nJohn drives a {expected}\nJohn is a fancy guy\nJohn washes a {expected}, good\n"
+            == f"John is a fancy guy\nJohn drives a {expected}\nFlag is False\nJohn is a fancy guy\nJohn washes a {expected}, good\n"
         )
 
     assertion("none", "nothing")

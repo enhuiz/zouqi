@@ -1,0 +1,4 @@
+default: example_base.yml
+
+drive:
+  title: yaml derived user
