@@ -1,11 +1,13 @@
+import sys
 import inspect
 import argparse
 from functools import partial
 from operator import attrgetter
+from pathlib import Path
 
 from .parsing import get_parser
 from .typing import Ignored, Flag, get_annotated_data
-from .utils import print_args, delete_first, find_first, find_first_index
+from .utils import print_args, delete_first, find_first, find_first_index, yaml2argv
 
 
 def change_kind(p, kind):
@@ -156,10 +158,24 @@ def start(cls, inherit=True):
         command_param_names = {p.name for p in command_data["params"]}
         filtered_params = filter(lambda p: p.name not in command_param_names, params)
         add_arguments_from_params(subparser, filtered_params)
-        subparser.add_argument("--print-args", action="store_true")
+        subparser.add_argument(
+            "--config",
+            type=Path,
+            default=None,
+            help="a YAML configuration file that overrides the default values of args",
+        )
+        subparser.add_argument(
+            "--print-args",
+            action="store_true",
+            help="print the parsed args in a message box",
+        )
         add_arguments_from_params(subparser, command_data["params"])
 
     args = parser.parse_args()
+    if args.config:
+        # priority: default < yaml config < sys.argv
+        argv = sys.argv[1:2] + yaml2argv(args.config, args.command) + sys.argv[2:]
+        args = parser.parse_args(argv)
 
     if args.print_args:
         print_args(args)

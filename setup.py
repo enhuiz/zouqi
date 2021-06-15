@@ -13,5 +13,6 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=["zouqi"],
+    install_requires=["yaml"],
     url="https://github.com/enhuiz/zouqi",
 )

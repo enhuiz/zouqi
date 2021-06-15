@@ -1,4 +1,6 @@
+import yaml
 import textwrap
+from itertools import chain
 
 
 def find_first(l, predicate, default=None):
@@ -41,3 +43,27 @@ def message_box(title, content, aligner="<", max_width=70):
 def print_args(args):
     args = [f"{k}: {v}" for k, v in sorted(vars(args).items())]
     print(message_box("Arguments", "\n".join(args)))
+
+
+def yaml2argv(path, command):
+    def to_val(x):
+        if isinstance(x, (tuple, list)):
+            return " ".join(map(to_val, x))
+        return str(x)
+
+    def to_key(k):
+        return f"--{k.replace('_', '-')}"
+
+    def to_argv(k, v):
+        return [to_key(k), to_val(v)]
+
+    with open(path, "r") as f:
+        o = yaml.load(f, yaml.Loader)
+
+    if command in o:
+        o.update(o[command])
+        del o[command]
+
+    argv = list(chain.from_iterable(to_argv(k, v) for k, v in o.items()))
+
+    return argv
