@@ -45,39 +45,54 @@ def print_args(args):
     print(message_box("Arguments", "\n".join(args)))
 
 
-def yaml2argv(path, command):
-    def to_val(x):
-        if isinstance(x, (tuple, list)):
-            return " ".join(map(to_val, x))
-        return str(x)
-
-    def to_key(k):
-        return f"--{k.replace('_', '-')}"
-
-    def to_argv(k, v):
-        argv = [to_key(k)]
-        if v is not None:
-            argv.append(to_val(v))
-        return argv
-
+def load_yaml(path, command):
     with open(path, "r") as f:
-        o: dict = yaml.load(f, yaml.Loader) or {}
+        # remove the blank at the end of lines
+        lines = f.read().splitlines()
+        data = "\n".join([l.rstrip() for l in lines])
+        data = yaml.load(data, Loader=yaml.FullLoader) or {}
 
-    if command in o:
-        o.update(o[command])
-        del o[command]
+    if command in data:
+        data.update(data[command])
 
-    argv = []
+    # except for command, only support first level
+    for key in list(data.keys()):
+        if type(data[key]) is dict:
+            del data[key]
 
     # load the default (i.e. base) yaml of the current yaml
-    if "default" in o:
-        bases = o["default"]
+    # a left base will be overwriten by the right base
+    if "default" in data:
+        bases = data["default"]
         if not isinstance(bases, list):
             bases = [bases]
-        for base in bases:
-            argv.extend(yaml2argv(base, command))
-        del o["default"]
+        for base in reversed(bases):
+            base = load_yaml(base, command)
+            base.update(data)
+            data = base
+        del data["default"]
 
-    argv.extend(chain.from_iterable(to_argv(k, v) for k, v in o.items()))
+    return data
 
+
+def to_val(x):
+    if isinstance(x, (tuple, list)):
+        return " ".join(map(to_val, x))
+    return str(x)
+
+
+def to_key(k):
+    return f"--{k.replace('_', '-')}"
+
+
+def to_argv(k, v):
+    argv = [to_key(k)]
+    if v is not None:
+        argv.append(to_val(v))
     return argv
+
+
+def yaml2argv(path, command):
+    data = load_yaml(path, command)
+    argv = chain.from_iterable(to_argv(k, v) for k, v in data.items())
+    return list(argv)
