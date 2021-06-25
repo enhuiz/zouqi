@@ -2,7 +2,8 @@ from typing import *
 
 
 class Parser(dict):
-    pass
+    def __hash__(self):
+        return hash(tuple(sorted(self.items())))
 
 
 def get_annotated_data(t):
