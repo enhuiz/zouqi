@@ -6,7 +6,7 @@ with open("README.md", "r") as f:
 setup(
     name="zouqi",
     python_requires=">=3.6.0",
-    version="1.0.9.dev0",
+    version="1.0.9",
     description="zouqi is a CLI starter similar to python-fire. It is purely built on argparse.",
     author="enhuiz",
     author_email="niuzhe.nz@outlook.com",
