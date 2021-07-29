@@ -87,7 +87,7 @@ def to_key(k):
 
 def to_argv(k, v):
     argv = [to_key(k)]
-    if v is not "":
+    if v != "":
         argv.extend(to_val(v))
     return argv
 
