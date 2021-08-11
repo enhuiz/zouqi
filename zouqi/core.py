@@ -196,7 +196,7 @@ def start(cls, inherit=True):
     instance = call(cls, args, params)
 
     # if there is an placeholder, then set args to the instance
-    if hasattr(instance, "args") and instance.args is None:
+    if hasattr(instance, "args") and isinstance(instance.args, argparse.Namespace):
         instance.args = args
 
     command_func = getattr(instance, args.command)
