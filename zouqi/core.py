@@ -195,9 +195,9 @@ def start(cls, inherit=True):
 
     instance = call(cls, args, params)
 
-    # if there is an placeholder, then set args to the instance
+    # if there is an placeholder, then set args to the instance and update args
     if hasattr(instance, "args") and isinstance(instance.args, argparse.Namespace):
-        instance.args = args
+        instance.args = argparse.Namespace(**vars(instance.args), **vars(args))
 
     command_func = getattr(instance, args.command)
     command_data = command_func._zouqi_data
