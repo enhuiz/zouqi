@@ -16,7 +16,7 @@ def inspect_params(cls, name):
     """
     params = []
 
-    not_var_kind = lambda p: p.kind not in [p.VAR_KEYWORD, p.VAR_KEYWORD]
+    not_var_kind = lambda p: p.kind not in [p.VAR_POSITIONAL, p.VAR_KEYWORD]
 
     for i, the_cls in enumerate(cls.mro()[:-1]):
         fn = getattr(the_cls, name, None)
