@@ -1,81 +1,48 @@
 import sys
 import inspect
 import argparse
-from functools import partial
 from operator import attrgetter
 from pathlib import Path
 
 from .parsing import get_parser
 from .typing import Ignored, Flag, get_annotated_data
-from .utils import print_args, delete_first, find_first, find_first_index, yaml2argv
+from .utils import print_args, yaml2argv
 
 
-def change_kind(p, kind):
-    return inspect.Parameter(p.name, kind, default=p.default, annotation=p.annotation)
-
-
-def merge_params(base_params, derived_params):
-    param_dict = {}
-
-    # handle *args
-    if any(p.kind is p.VAR_POSITIONAL for p in derived_params):
-        # remove *args
-        delete_first(derived_params, lambda p: p.kind is p.VAR_POSITIONAL)
-
-        # find the first keyword only parameters
-        p = find_first(derived_params, lambda p: p.kind is p.KEYWORD_ONLY)
-
-        if p is None:
-            stop = len(base_params)
-        else:
-            stop = find_first_index(base_params, lambda b: b.name == p.name)
-
-        # inherit **kwargs
-        for p in base_params[:stop]:
-            param_dict[p.name] = change_kind(p, p.POSITIONAL_ONLY)
-
-    # handle **kwargs
-    if any(p.kind == p.VAR_KEYWORD for p in derived_params):
-        # remove **kwargs
-        delete_first(derived_params, lambda p: p.kind is p.VAR_KEYWORD)
-
-        # find the first keyword only parameters
-        p = find_first(derived_params, lambda p: p.kind is p.KEYWORD_ONLY)
-
-        if p is None:
-            start = 0
-        else:
-            start = find_first_index(base_params, lambda b: b.name == p.name) + 1
-
-        # inherit **kwargs
-        for p in base_params[start:]:
-            param_dict[p.name] = change_kind(p, p.KEYWORD_ONLY)
-
-    # update params using derived
-    for p in derived_params:
-        param_dict[p.name] = p
-
-    # from Python 3.7, dict is now OrderedDict
-    return list(param_dict.values())
-
-
-def inspect_params(cls, name, inherit=True):
+def inspect_params(cls, name):
     """
     Recursively parse function params.
     Function parameters of the derived class overrides the base class ones.
     """
-    if cls is None:
-        return []
+    params = []
 
-    f = getattr(cls, name, None)
-    if f is None:
-        return []
+    not_var_kind = lambda p: p.kind not in [p.VAR_KEYWORD, p.VAR_KEYWORD]
 
-    params = list(inspect.signature(f).parameters.values())
+    for i, the_cls in enumerate(cls.mro()[:-1]):
+        fn = getattr(the_cls, name, None)
 
-    bases = cls.__bases__ if inherit else []
-    for base in bases:
-        params = merge_params(inspect_params(base, name), params)
+        if fn is not None:
+            the_params = inspect.signature(fn).parameters.values()
+
+            if any(p.kind is p.VAR_POSITIONAL for p in the_params):
+                raise RuntimeError(
+                    "Variable positional argument is no longer supported after zouqi==1.10,"
+                    f"but found in {the_cls.__name__}.{name}."
+                )
+
+            params.extend([p for p in the_params if not_var_kind(p)])
+
+            if i == 0 and all(p.kind is not p.VAR_KEYWORD for p in the_params):
+                # if the derived method does not has **kwargs
+                # no params from base method will be parsed from command line
+                break
+
+    # keep only the first param of the params with the same name
+    unique_indices = {}
+    for i, p in enumerate(params):
+        if p.name not in unique_indices:
+            unique_indices[p.name] = i
+    params = [params[i] for i in unique_indices.values()]
 
     return params
 
@@ -119,41 +86,35 @@ def add_arguments_from_params(parser, params):
         parser.add_argument(name, **kwargs)
 
 
-def command(f=None, inherit=True):
-    if f is not None:
-        f._zouqi_data = dict(inherit=inherit)
-        return f
-    return partial(command, inherit=inherit)
+def command(fn):
+    fn._zouqi = {}
+    return fn
 
 
-def iterate_command_functions(cls):
-    for _, func in inspect.getmembers(cls, inspect.isfunction):
-        if hasattr(func, "_zouqi_data"):
-            yield func
+def command_fns(cls):
+    for _, fn in inspect.getmembers(cls, inspect.isfunction):
+        if hasattr(fn, "_zouqi"):
+            yield fn
 
 
-def call(func, args, params: list[inspect.Parameter]):
+def call(fn, args, params: list[inspect.Parameter]):
     read = lambda p: getattr(args, p.name)
     exists = lambda p: hasattr(args, p.name)
-    is_pos = lambda p: p.kind in [p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD]
-    return func(
-        *[read(p) for p in params if exists(p) and is_pos(p)],
-        **{p.name: read(p) for p in params if exists(p) and not is_pos(p)},
-    )
+    return fn(**{p.name: read(p) for p in params if exists(p)})
 
 
-def start(cls, inherit=True):
+def start(cls):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # global params (i.e. params of __init__)
-    params = inspect_params(cls, "__init__", inherit)
+    params = inspect_params(cls, "__init__")
     for name, command_data in map(
-        attrgetter("__name__", "_zouqi_data"),
-        iterate_command_functions(cls),
+        attrgetter("__name__", "_zouqi"),
+        command_fns(cls),
     ):
         # local params (i.e. params of command function)
-        command_data["params"] = inspect_params(cls, name, command_data["inherit"])
+        command_data["params"] = inspect_params(cls, name)
         subparser = subparsers.add_parser(name)
         command_param_names = {p.name for p in command_data["params"]}
         filtered_params = filter(lambda p: p.name not in command_param_names, params)
@@ -200,7 +161,7 @@ def start(cls, inherit=True):
         instance.args = argparse.Namespace(**vars(instance.args), **vars(args))
 
     command_func = getattr(instance, args.command)
-    command_data = command_func._zouqi_data
+    command_data = command_func._zouqi
     call(command_func, args, command_data["params"])
 
     return instance

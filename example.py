@@ -53,15 +53,13 @@ class Driver:
 
 
 class FancyDriver(Driver):
-    def __init__(self, *args, title: str = "fancy guy", **kwargs):
+    def __init__(self, title: str = "fancy guy", **kwargs):
         # <title = "fancy driver"> overrides <title = "driver">
-        # as <flag> is not passed, it will be ignored.
-        super().__init__(*args, title=title, **kwargs)
+        super().__init__(title=title, **kwargs)
 
     @zouqi.command
     def drive(self, something: PrettifiedString, title: str = "fancy driver"):
         # <something: PrettifiedString> overrides <something: str>
-        # option overrides argument, which requires --something
         super().drive(something)
 
     # same as base class, but not a command, cannot be called.
@@ -71,6 +69,6 @@ class FancyDriver(Driver):
 
 if __name__ == "__main__":
     print("======= Calling in the script ========")
-    FancyDriver("John").drive_wash("car")
+    FancyDriver(name="John").drive_wash("car")
     print("======= Calling from the CLI ========")
     zouqi.start(FancyDriver)
