@@ -3,6 +3,7 @@ import inspect
 import argparse
 from operator import attrgetter
 from pathlib import Path
+from abc import ABC
 
 from .parsing import get_parser
 from .typing import Ignored, Flag, get_annotated_data
@@ -18,7 +19,8 @@ def inspect_params(cls, name):
 
     not_var_kind = lambda p: p.kind not in [p.VAR_POSITIONAL, p.VAR_KEYWORD]
 
-    for i, the_cls in enumerate(cls.mro()[:-1]):
+    mro = filter(lambda c: c not in [object, ABC], cls.mro())
+    for i, the_cls in enumerate(mro):
         fn = getattr(the_cls, name, None)
 
         if fn is not None:
@@ -26,7 +28,7 @@ def inspect_params(cls, name):
 
             if any(p.kind is p.VAR_POSITIONAL for p in the_params):
                 raise RuntimeError(
-                    "Variable positional argument is no longer supported after zouqi==1.10,"
+                    "Variable positional argument is no longer supported after zouqi==1.10, "
                     f"but found in {the_cls.__name__}.{name}."
                 )
 
