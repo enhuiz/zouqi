@@ -99,12 +99,6 @@ def command_fns(cls):
             yield fn
 
 
-def call(fn, args, params: list[inspect.Parameter]):
-    read = lambda p: getattr(args, p.name)
-    exists = lambda p: hasattr(args, p.name)
-    return fn(**{p.name: read(p) for p in params if exists(p)})
-
-
 def start(cls):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -156,14 +150,18 @@ def start(cls):
     if args.print_args:
         print_args(args)
 
-    instance = call(cls, args, params)
+    get = lambda p: getattr(args, p.name)
+    has = lambda p: hasattr(args, p.name)
+    make_kwargs = lambda params: {p.name: get(p) for p in params if has(p)}
 
-    # if there is an placeholder, then set args to the instance and update args
+    # new and init is separated as we want args is there before __init__
+    instance = cls.__new__(cls)
     if hasattr(instance, "args") and isinstance(instance.args, argparse.Namespace):
-        instance.args = argparse.Namespace(**vars(instance.args), **vars(args))
+        instance.args = args
+    instance.__init__(**make_kwargs(params))
 
     command_func = getattr(instance, args.command)
     command_data = command_func._zouqi
-    call(command_func, args, command_data["params"])
+    command_func(**make_kwargs(command_data["params"]))
 
     return instance
